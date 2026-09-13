@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Krankmeldung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --ink: #1B2430;
+      --mute: #66707E;
+      --line: #E3E7ED;
+      --surface: #FFFFFF;
+      --canvas: #F5F7FA;
+      --brand: #146B69;
+      --brand-dark: #0E4E4D;
+      --brand-light: #E3F0EF;
+      --warn: #C4762A;
+      --warn-light: #FBEDE0;
+      --bad: #B4432F;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--canvas); color: var(--ink); min-height: 100vh; }
+    .container { max-width: 56rem; margin: 0 auto; padding: 1.5rem 1rem; }
+    @media (min-width: 640px) { .container { padding: 2.5rem 1.5rem; } }
+
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 1.1rem; padding: 1rem; margin-bottom: 1.25rem; }
+    @media (min-width: 640px) { .card { padding: 1.25rem; } }
+
+    .header-box { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
+    .title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; }
+    .subtitle { font-size: 0.875rem; color: var(--mute); margin-top: 0.25rem; }
+
+    .badge-date { background: var(--brand-light); color: var(--brand-dark); padding: 0.5rem 0.75rem; border-radius: 1.1rem; text-align: center; }
+    .badge-date .day { font-size: 0.875rem; font-weight: 600; }
+    .badge-date .num { font-size: 0.75rem; }
+
+    .tabs { display: flex; gap: 1.5rem; border-bottom: 1px solid var(--line); margin-bottom: 1.5rem; }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding-bottom: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--mute); cursor: pointer; }
+    .tab-btn[data-active="true"] { color: var(--brand); border-color: var(--brand); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+    @media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+    .radio-card { display: flex; align-items: flex-start; gap: 0.75rem; border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.65rem 0.75rem; cursor: pointer; }
+    .radio-card:has(input:checked) { border-color: var(--brand); background: var(--brand-light); }
+    input[type="radio"], input[type="checkbox"] { accent-color: var(--brand); margin-top: 0.2rem; }
+
+    .input-box { width: 100%; border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; outline: none; }
+    .input-box:focus { border-color: var(--brand); }
+    label.field-label { display: block; font-size: 0.75rem; color: var(--mute); margin-bottom: 0.25rem; }
+
+    .btn-main { width: 100%; background: var(--brand); color: #fff; font-weight: 600; padding: 0.9rem; border: none; border-radius: 1.1rem; font-size: 1rem; cursor: pointer; transition: background 0.15s; }
+    .btn-main:hover { background: var(--brand-dark); }
+    .btn-sub { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+    .btn-sub:hover { background: var(--canvas); }
+
+    .hidden { display: none !important; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+    /* Stundenplan Editor Styling wie auf Screenshot */
+    .schedule-day-block {
+      border: 1px solid #E2E8F0;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: #FFFFFF;
+      margin-bottom: 1rem;
+    }
+    .schedule-day-summary {
+      cursor: pointer;
+      user-select: none;
+      padding: 0.85rem 1.1rem;
+      background: #F8FAFC;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+    }
+    .schedule-day-summary::-webkit-details-marker { display: none; }
+    .schedule-day-title { font-size: 0.95rem; font-weight: 700; color: #1E293B; }
+    .schedule-day-count { font-size: 0.8rem; color: #64748B; font-weight: 500; }
+    
+    .schedule-day-content { padding: 1rem 1.1rem; }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 2.2fr 1.3fr 1.8fr 3fr 1fr 32px;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 0.65rem;
+    }
+    @media (max-width: 640px) {
+      .schedule-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px dashed var(--line);
+      }
+    }
+    .schedule-input {
+      border: 1px solid #CBD5E1;
+      border-radius: 0.65rem;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+      color: #1E293B;
+      outline: none;
+      background: #FFFFFF;
+      width: 100%;
+    }
+    .schedule-input:focus { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+    .btn-add-subject {
+      background: none;
+      border: none;
+      color: #146B69;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.3rem 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .btn-add-subject:hover { text-decoration: underline; }
+    .btn-del-subject {
+      background: none;
+      border: none;
+      color: #94A3B8;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
+      width: 32px;
+      border-radius: 0.375rem;
+    }
+    .btn-del-subject:hover { color: #EF4444; background: #FEF2F2; }
+
+    /* Untis Grid */
+    .grid-table { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden; background: var(--surface); }
+    .grid-col { border-right: 1px solid var(--line); background: rgba(245, 247, 250, 0.4); min-height: 380px; }
+    .grid-col:last-child { border-right: none; }
+    .grid-head { padding: 0.6rem; border-bottom: 1px solid var(--line); text-align: center; cursor: pointer; font-size: 0.75rem; }
+    .grid-item { margin: 0.5rem; padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); font-size: 0.75rem; cursor: pointer; }
+    
+    .status-krank { border-color: rgba(180,67,47,0.4); background: rgba(180,67,47,0.06); border-left: 4px solid var(--bad); }
+    .status-versp { border-color: rgba(196,118,42,0.4); background: rgba(196,118,42,0.1); border-left: 4px solid var(--warn); }
+    .status-passiv { border-color: #7dd3fc; background: #f0f9ff; border-left: 4px solid #0284c7; }
+    .status-entfaellt { border-style: dashed; opacity: 0.7; background: #e2e8f0; text-decoration: line-through; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(27,36,48,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+    .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 380px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Kopfbereich -->
+  <header class="header-box">
+    <div>
+      <h1 class="title">Krankmeldung</h1>
+      <p id="todayLine" class="subtitle">–</p>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
+      <div class="badge-date">
+        <div id="headerWeekday" class="day">–</div>
+        <div id="headerDate" class="num">–</div>
+      </div>
+      <button id="authBtn" class="btn-sub" style="color:var(--mute);">
+        <span id="authBtnLabel">☁️ Anmelden (Sync)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs">
+    <button data-tab="melden" data-active="true" class="tab-btn">Krankmelden</button>
+    <button data-tab="history" data-active="false" class="tab-btn">Fehltage & Stundenplan</button>
+    <button data-tab="settings" data-active="false" class="tab-btn">Einstellungen</button>
+  </nav>
+
+  <!-- ================= TAB: MELDEN ================= -->
+  <section id="panel-melden">
+    <div id="reminderBox" style="margin-bottom: 1.25rem;"></div>
+
+    <div class="card">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Art der Meldung</h2>
+      <div class="grid-2">
+        <label class="radio-card">
+          <input type="radio" name="meldeArt" value="krank" checked>
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">Krankmeldung</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Fällt heute ganz oder teilweise aus</span>
+          </div>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="meldeArt" value="verspaetung">
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">Verspätung</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Kommt heute später zum Unterricht</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Angaben</h2>
+      <div class="grid-2">
+        <div>
+          <label class="field-label" for="stuName">Name</label>
+          <input id="stuName" type="text" class="input-box" placeholder="Vor- und Nachname">
+        </div>
+        <div>
+          <label class="field-label" for="stuKlasse">Klasse</label>
+          <input id="stuKlasse" type="text" class="input-box" placeholder="z. B. 11G1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:0.75rem;">
+        <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute);">Fächer</h2>
+        <select id="daySelect" class="input-box" style="width:auto; padding:0.3rem 0.5rem;"></select>
+      </div>
+      <div id="subjectList" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+      <div id="noSubjects" class="hidden" style="text-align:center; padding:1.5rem; font-size:0.875rem; color:var(--mute);">
+        Keine Fächer hinterlegt.
+      </div>
+      <div style="display:flex; gap:1rem; margin-top:0.75rem; font-size:0.75rem;">
+        <button id="selectAll" style="background:none; border:none; color:var(--brand); cursor:pointer; font-weight:600;">Alle auswählen</button>
+        <button id="selectNone" style="background:none; border:none; color:var(--brand); cursor:pointer; font-weight:600;">Keine auswählen</button>
+      </div>
+    </div>
+
+    <div id="verspaetungCard" class="card hidden">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Verspätungsangaben</h2>
+      <div class="grid-2">
+        <div>
+          <label class="field-label" for="ankunftszeit">Voraussichtliche Ankunft</label>
+          <input id="ankunftszeit" type="time" class="input-box">
+        </div>
+        <div>
+          <label class="field-label" for="verspaetungGrund">Grund (optional)</label>
+          <input id="verspaetungGrund" type="text" class="input-box" placeholder="z. B. Bus verpasst">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Versandart</h2>
+      <div class="grid-2">
+        <label class="radio-card">
+          <input type="radio" name="mode" value="mailto" checked>
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">Sofortstart</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Öffnet dein Mail-Programm</span>
+          </div>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="mode" value="api">
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">SMTP-API</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Automatisch über Backend</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Empfänger</h2>
+      <div class="grid-2">
+        <label class="radio-card">
+          <input type="radio" name="recipientMode" value="combined" checked>
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">Eine E-Mail an alle</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Alle Lehrkräfte im An-Feld</span>
+          </div>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="recipientMode" value="separate">
+          <div>
+            <span style="display:block; font-size:0.875rem; font-weight:600;">Getrennte E-Mails</span>
+            <span style="font-size:0.75rem; color:var(--mute);">Jede Lehrkraft einzeln</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button id="sendBtn" class="btn-main">Heute krankmelden</button>
+    <div id="results" style="margin-top:1rem;" class="hidden"></div>
+  </section>
+
+  <!-- ================= TAB: FEHLTAGE & PLAN ================= -->
+  <section id="panel-history" class="hidden">
+    <div class="card flex-between" style="flex-wrap:wrap; gap:0.5rem;">
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <button id="prevWeekBtn" class="btn-sub">◀</button>
+        <button id="currentWeekBtn" class="btn-sub" style="color:var(--brand);">Heute</button>
+        <button id="nextWeekBtn" class="btn-sub">▶</button>
+        <span id="weekRangeLabel" style="font-size:0.875rem; font-weight:600; margin-left:0.5rem;">–</span>
+      </div>
+      <button id="openArchiveBtn" class="btn-sub">📁 Nachweise-Ordner</button>
+    </div>
+
+    <div style="overflow-x:auto; margin-bottom:1rem;">
+      <div id="untisGrid" class="grid-table" style="min-width:650px;"></div>
+    </div>
+    <p id="historyStats" style="font-size:0.75rem; color:var(--mute); text-align:right;">–</p>
+  </section>
+
+  <!-- ================= TAB: EINSTELLUNGEN ================= -->
+  <section id="panel-settings" class="hidden">
+    <div class="card">
+      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.5rem;">SMTP-API Endpunkt</h2>
+      <input id="apiEndpoint" type="url" class="input-box" placeholder="https://mein-backend.example.com/send-mail">
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink); margin-bottom:1rem;">Regulärer Stundenplan</h2>
+      <div id="scheduleEditor"></div>
+    </div>
+
+    <div style="display:flex; gap:0.5rem;">
+      <button id="saveSettings" class="btn-main" style="flex:1;">Speichern</button>
+      <button id="resetSettings" class="btn-sub">Zurücksetzen</button>
+    </div>
+    <p id="saveNote" class="hidden" style="color:var(--brand); font-size:0.75rem; margin-top:0.5rem;">Gespeichert!</p>
+  </section>
+
+</div>
+
+<!-- Modal: Auth / Sync -->
+<div id="authModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="flex-between" style="margin-bottom:1rem;">
+      <div>
+        <h3 style="font-size:1rem; font-weight:700;">Cloud-Sync Konto</h3>
+        <p style="font-size:0.75rem; color:var(--mute);">Handy & iPad automatisch verbinden</p>
+      </div>
+      <button id="closeAuthModalBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+    </div>
+
+    <div id="authUserInfo" class="hidden" style="display:flex; flex-direction:column; gap:0.75rem;">
+      <p style="font-size:0.8rem;">Angemeldet als: <br><strong id="authUserEmail" style="color:var(--brand);"></strong></p>
+      <button id="logoutBtn" class="btn-sub" style="color:var(--bad); border-color:var(--bad);">Abmelden</button>
+    </div>
+
+    <div id="authActions" style="display:flex; flex-direction:column; gap:0.75rem;">
+      <button id="googleLoginBtn" class="btn-sub" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.6rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        <span>Mit Google anmelden</span>
+      </button>
+
+      <div style="text-align:center; font-size:0.75rem; color:var(--mute); margin:0.25rem 0;">– oder mit E-Mail –</div>
+
+      <input id="authEmail" type="email" placeholder="E-Mail" class="input-box">
+      <input id="authPassword" type="password" placeholder="Passwort (mind. 6 Zeichen)" class="input-box">
+      <p id="authError" class="hidden" style="color:var(--bad); font-size:0.75rem;"></p>
+
+      <div style="display:flex; gap:0.5rem;">
+        <button id="loginSubmitBtn" class="btn-main" style="padding:0.5rem; font-size:0.8rem; flex:1;">Einloggen</button>
+        <button id="registerSubmitBtn" class="btn-sub" style="padding:0.5rem; font-size:0.8rem; flex:1;">Konto erstellen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Einzelstunde bearbeiten -->
+<div id="cellModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h3 id="modalTitle" style="font-size:1rem; font-weight:700;">Stunde bearbeiten</h3>
+    <p id="modalSub" style="font-size:0.75rem; color:var(--mute); margin-bottom:1rem;">–</p>
+    
+    <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.875rem; margin-bottom:1rem;">
+      <label class="radio-card"><input type="radio" name="modalStatus" value="anwesend"> <span>Normal anwesend</span></label>
+      <label class="radio-card" style="color:var(--bad);"><input type="radio" name="modalStatus" value="krank"> <strong>Gefehlt (Krank)</strong></label>
+      <label class="radio-card" style="color:var(--warn);"><input type="radio" name="modalStatus" value="verspaetung"> <strong>Verspätet</strong></label>
+      <label class="radio-card" style="color:#0369a1;"><input type="radio" name="modalStatus" value="passiv"> <strong>Sportbefreiung</strong></label>
+      <label class="radio-card" style="color:var(--mute);"><input type="radio" name="modalStatus" value="entfaellt"> <strong>Entfällt / Ausfall</strong></label>
+    </div>
+
+    <button id="modalPrintBtn" class="btn-sub" style="width:100%; color:var(--brand); border-color:var(--brand); margin-bottom:0.5rem;">Entschuldigung für diese Stunde drucken</button>
+    <div style="display:flex; gap:0.5rem;">
+      <button id="modalSaveBtn" class="btn-main" style="padding:0.5rem; font-size:0.8rem; flex:1;">Speichern</button>
+      <button id="modalCloseBtn" class="btn-sub" style="flex:1;">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ganzer Tag bearbeiten -->
+<div id="dayModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:440px;">
+    <h3 id="dayModalTitle" style="font-size:1rem; font-weight:700;">Ganzen Tag bearbeiten</h3>
+    <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">Status für alle Stunden setzen:</p>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:1rem;">
+      <button class="day-set-status-btn btn-sub" data-status="anwesend">Anwesend</button>
+      <button class="day-set-status-btn btn-sub" data-status="krank" style="color:var(--bad); font-weight:700;">Ganztägig krank</button>
+      <button class="day-set-status-btn btn-sub" data-status="verspaetung" style="color:var(--warn); font-weight:700;">Verspätung</button>
+      <button class="day-set-status-btn btn-sub" data-status="entfaellt" style="color:var(--mute); font-weight:700;">Alles entfällt</button>
+    </div>
+
+    <div id="dayModalSubjectList" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1rem;"></div>
+
+    <button id="dayModalPrintAllBtn" class="btn-main" style="padding:0.5rem; font-size:0.8rem; margin-bottom:0.5rem;">Entschuldigung für Fehltage drucken</button>
+    <div style="display:flex; gap:0.5rem;">
+      <button id="dayModalSaveBtn" class="btn-sub" style="flex:1; color:var(--brand); border-color:var(--brand);">Änderungen speichern</button>
+      <button id="dayModalCloseBtn" class="btn-sub" style="flex:1;">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nachweise-Archiv -->
+<div id="archiveModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:600px; max-height:85vh; display:flex; flex-direction:column;">
+    <div class="flex-between" style="border-bottom:1px solid var(--line); padding-bottom:0.5rem; margin-bottom:0.75rem;">
+      <h3 style="font-size:1rem; font-weight:700;">📁 Nachweise-Ordner</h3>
+      <button id="closeArchiveBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+    </div>
+    <div id="archiveContent" style="overflow-y:auto; flex:1;"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------
+   Firebase Initialisierung
+--------------------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAKxyP5jspdjKEyOLcRaLvoTffWUkR_148",
+  authDomain: "krankmeldung-2df95.firebaseapp.com",
+  projectId: "krankmeldung-2df95",
+  storageBucket: "krankmeldung-2df95.firebasestorage.app",
+  messagingSenderId: "995117065431",
+  appId: "1:995117065431:web:8af45d1d71cc93735d3c92"
+};
+
+let auth = null, db = null, currentUser = null, unsubscribeDoc = null;
+
+try {
+  if (window.firebase) {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+
+      const authBtnLabel = document.getElementById('authBtnLabel');
+      const authUserInfo = document.getElementById('authUserInfo');
+      const authActions = document.getElementById('authActions');
+      const authUserEmail = document.getElementById('authUserEmail');
+
+      if (user) {
+        authBtnLabel.textContent = user.displayName || user.email.split('@')[0];
+        document.getElementById('authBtn').style.color = 'var(--brand)';
+        authActions.classList.add('hidden');
+        authUserInfo.classList.remove('hidden');
+        authUserEmail.textContent = user.email;
+
+        const userRef = db.collection('users').doc(user.uid);
+        unsubscribeDoc = userRef.onSnapshot((docSnap) => {
+          if (docSnap.exists) {
+            applyCloudData(docSnap.data());
+          } else {
+            pushAllToCloud();
+          }
+        });
+      } else {
+        authBtnLabel.textContent = '☁️ Anmelden (Sync)';
+        document.getElementById('authBtn').style.color = 'var(--mute)';
+        authActions.classList.remove('hidden');
+        authUserInfo.classList.add('hidden');
+      }
+    });
+  }
+} catch (e) {
+  console.warn("Firebase konnte nicht initialisiert werden (Offline-Modus):", e);
+}
+
+function syncWithCloud() {
+  if (db && currentUser) {
+    db.collection('users').doc(currentUser.uid).set({
+      schedule, student, settings, reminders, statusLog
+    }, { merge: true }).catch(err => console.error("Cloud Sync Fehler:", err));
+  }
+}
+
+function pushAllToCloud() { syncWithCloud(); }
+
+function applyCloudData(data) {
+  if (!data) return;
+  if (data.schedule) { schedule = data.schedule; localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); renderScheduleEditor(); }
+  if (data.student) { student = data.student; localStorage.setItem(LS_STUDENT, JSON.stringify(student)); document.getElementById('stuName').value = student.name || ''; document.getElementById('stuKlasse').value = student.klasse || ''; }
+  if (data.settings) { settings = data.settings; localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+  if (data.reminders) { reminders = data.reminders; localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); renderReminders(); }
+  if (data.statusLog) { statusLog = data.statusLog; localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); renderUntisWeek(); }
+  renderSubjects();
+}
+
+/* Auth Modal Handlers */
+document.getElementById('authBtn').addEventListener('click', () => document.getElementById('authModal').classList.remove('hidden'));
+document.getElementById('closeAuthModalBtn').addEventListener('click', () => document.getElementById('authModal').classList.add('hidden'));
+
+document.getElementById('googleLoginBtn').addEventListener('click', () => {
+  if (!auth) return alert("Verbindung zur Cloud wird aufgebaut...");
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(() => {
+    document.getElementById('authModal').classList.add('hidden');
+  }).catch(err => {
+    const errEl = document.getElementById('authError');
+    errEl.textContent = "Google Login Fehler: " + err.message;
+    errEl.classList.remove('hidden');
+  });
+});
+
+document.getElementById('loginSubmitBtn').addEventListener('click', () => {
+  if (!auth) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPassword').value;
+  auth.signInWithEmailAndPassword(email, pass).then(() => {
+    document.getElementById('authModal').classList.add('hidden');
+  }).catch(err => {
+    const errEl = document.getElementById('authError');
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  });
+});
+
+document.getElementById('registerSubmitBtn').addEventListener('click', () => {
+  if (!auth) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPassword').value;
+  auth.createUserWithEmailAndPassword(email, pass).then(() => {
+    document.getElementById('authModal').classList.add('hidden');
+  }).catch(err => {
+    const errEl = document.getElementById('authError');
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  if (auth) auth.signOut();
+});
+
+/* ---------------------------------------------------------------------
+   IndexedDB Belege
+--------------------------------------------------------------------- */
+const DB_NAME = 'KrankmeldungDB', STORE_NAME = 'nachweise';
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveProofToDB(rec) {
+  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readwrite');
+  tx.objectStore(STORE_NAME).put(rec);
+  return new Promise(res => tx.oncomplete = res);
+}
+async function getAllProofsFromDB() {
+  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readonly');
+  const req = tx.objectStore(STORE_NAME).getAll();
+  return new Promise(res => req.onsuccess = () => res(req.result || []));
+}
+async function deleteProofFromDB(id) {
+  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readwrite');
+  tx.objectStore(STORE_NAME).delete(id);
+  return new Promise(res => tx.oncomplete = res);
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height, max = 1200;
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round((h * max) / w); w = max; }
+          else { w = Math.round((w * max) / h); h = max; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+    };
+    reader.onerror = reject;
+  });
+}
+
+/* ---------------------------------------------------------------------
+   State & App-Logik
+--------------------------------------------------------------------- */
+const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+const LS_SCHEDULE = 'krankmelden_stundenplan', LS_STUDENT = 'krankmelden_schueler';
+const LS_SETTINGS = 'krankmelden_settings', LS_REMINDERS = 'krankmelden_erinnerungen';
+const LS_STATUS_LOG = 'krankmelden_status_log';
+
+const DEFAULT_SCHEDULE = {
+  Montag: [
+    { id: 'm1', fach: 'Geschichte', anrede: 'Herr', nachname: 'Koch', email: 'alexander.koch@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'm2', fach: 'Physik', anrede: 'Frau', nachname: 'Bierwirth', email: 'rebekka.bierwirth@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'm3', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '5' },
+    { id: 'm4', fach: 'Erdkunde', anrede: 'Frau', nachname: 'Nürnberger-Wolf', email: 'j.nuernberger-wolf@kgs-badlauterberg.de', stunde: '6' }
+  ],
+  Dienstag: [
+    { id: 'di1', fach: 'WPK', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '2' },
+    { id: 'di2', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'di3', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'di4', fach: 'Kunst', anrede: 'Frau', nachname: 'Leise', email: 'louisa.leise@kgs-badlauterberg.de', stunde: '7/8' }
+  ],
+  Mittwoch: [
+    { id: 'mi1', fach: 'Bio', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'mi2', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'mi3', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'mi4', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'mi5', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '7/8' }
+  ],
+  Donnerstag: [
+    { id: 'do1', fach: 'Werte & Normen', anrede: 'Frau', nachname: 'Requardt', email: 'aiden.requardt@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'do2', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '3/4' }
+  ],
+  Freitag: [
+    { id: 'fr1', fach: 'WPK', anrede: 'Frau', nachname: 'Alert', email: 'andrea.alert@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'fr2', fach: 'Chemie', anrede: 'Herr', nachname: 'Pauls', email: 'michael.pauls@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'fr3', fach: 'Sport', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' }
+  ]
+};
+
+function cryptoId() { return 'x' + Math.random().toString(36).slice(2, 10); }
+
+let schedule = JSON.parse(localStorage.getItem(LS_SCHEDULE) || 'null') || structuredClone(DEFAULT_SCHEDULE);
+let student = JSON.parse(localStorage.getItem(LS_STUDENT) || 'null') || { name: 'Moaz Abdulaziz', klasse: '11G1' };
+let settings = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { apiEndpoint: '' };
+let reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || 'null') || [];
+let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
+
+function saveSchedule(s) { localStorage.setItem(LS_SCHEDULE, JSON.stringify(s)); syncWithCloud(); }
+function saveStudent(s) { localStorage.setItem(LS_STUDENT, JSON.stringify(s)); syncWithCloud(); }
+function saveSettings(s) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); syncWithCloud(); }
+function saveReminders(r) { localStorage.setItem(LS_REMINDERS, JSON.stringify(r)); syncWithCloud(); }
+function saveStatusLog(l) { localStorage.setItem(LS_STATUS_LOG, JSON.stringify(l)); syncWithCloud(); }
+
+function toIsoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseIsoLocal(iso) {
+  const p = (iso||'').split('-');
+  return p.length === 3 ? new Date(p[0], p[1]-1, p[2], 12, 0, 0) : new Date();
+}
+function getSafeDateStrings(iso) {
+  const d = typeof iso === 'string' ? parseIsoLocal(iso) : new Date(iso);
+  const dateStr = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return { dateStr, longStr: `${d.toLocaleDateString('de-DE', { weekday: 'long' })}, ${dateStr}` };
+}
+
+function getDeadlineInfo(iso) {
+  const d = parseIsoLocal(iso);
+  const dl = new Date(d); dl.setDate(dl.getDate() + 7); dl.setHours(23, 59, 59, 999);
+  const dlStr = dl.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const now = new Date();
+  const left = Math.round((new Date(dl.getFullYear(), dl.getMonth(), dl.getDate(), 12) - new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)) / 86400000);
+  
+  let text = `Noch ${left} Tage Zeit (bis ${dlStr})`, color = 'var(--mute)';
+  if (left < 0) { text = `⚠️ Überfällig seit ${Math.abs(left)} Tagen!`; color = 'var(--bad)'; }
+  else if (left === 0) { text = `🚨 Frist läuft HEUTE ab!`; color = 'var(--bad)'; }
+  else if (left <= 2) { text = `⏳ Nur noch ${left} Tage verbleibend`; color = 'var(--warn)'; }
+  return { dlStr, text, color };
+}
+
+/* Initialer Header */
+const now = new Date();
+const map = { 1: 'Montag', 2: 'Dienstag', 3: 'Mittwoch', 4: 'Donnerstag', 5: 'Freitag' };
+const curWeekday = map[now.getDay()] || null;
+document.getElementById('headerWeekday').textContent = curWeekday || 'Wochenende';
+document.getElementById('headerDate').textContent = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+document.getElementById('todayLine').textContent = curWeekday 
+  ? `Heute ist ${now.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}.` 
+  : 'Heute ist kein Schultag – wähle unten einen Tag zum Melden.';
+
+/* Tab-Wechsel */
+const tabButtons = document.querySelectorAll('.tab-btn');
+const panels = {
+  melden: document.getElementById('panel-melden'),
+  history: document.getElementById('panel-history'),
+  settings: document.getElementById('panel-settings')
+};
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabButtons.forEach(b => b.dataset.active = 'false');
+    btn.dataset.active = 'true';
+    Object.entries(panels).forEach(([k, el]) => el.classList.toggle('hidden', k !== btn.dataset.tab));
+    if (btn.dataset.tab === 'history') renderUntisWeek();
+    if (btn.dataset.tab === 'melden') renderReminders();
+  });
+});
+
+/* Melde-Formular */
+const daySelect = document.getElementById('daySelect');
+WEEKDAYS.forEach(d => {
+  const o = document.createElement('option'); o.value = d; o.textContent = d; daySelect.appendChild(o);
+});
+daySelect.value = curWeekday || 'Montag';
+
+function renderSubjects() {
+  const list = document.getElementById('subjectList');
+  list.innerHTML = '';
+  const subs = schedule[daySelect.value] || [];
+  document.getElementById('noSubjects').classList.toggle('hidden', subs.length > 0);
+  subs.forEach(s => {
+    const row = document.createElement('label');
+    row.className = 'radio-card';
+    row.innerHTML = `
+      <input type="checkbox" class="subj-check" data-id="${s.id}" checked>
+      <div style="flex:1; min-width:0;">
+        <span style="font-weight:600; font-size:0.875rem;">${s.fach} (${s.stunde||''}. Std.)</span>
+        <span style="display:block; font-size:0.75rem; color:var(--mute);">${s.anrede} ${s.nachname} · ${s.email}</span>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+daySelect.addEventListener('change', renderSubjects);
+renderSubjects();
+
+document.getElementById('selectAll').addEventListener('click', () => document.querySelectorAll('.subj-check').forEach(c => c.checked = true));
+document.getElementById('selectNone').addEventListener('click', () => document.querySelectorAll('.subj-check').forEach(c => c.checked = false));
+
+document.querySelectorAll('input[name="meldeArt"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const isVersp = document.querySelector('input[name="meldeArt"]:checked').value === 'verspaetung';
+    document.getElementById('verspaetungCard').classList.toggle('hidden', !isVersp);
+    document.getElementById('sendBtn').textContent = isVersp ? 'Verspätung melden' : 'Heute krankmelden';
+  });
+});
+
+document.getElementById('stuName').value = student.name || '';
+document.getElementById('stuKlasse').value = student.klasse || '';
+
+function syncReminderForDate(iso, dayName) {
+  const subs = schedule[dayName] || [];
+  const sick = [];
+  subs.forEach(s => {
+    const st = statusLog[`${iso}|${s.id}`];
+    if (st === 'krank' || st === 'passiv') sick.push({ id: s.id, fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: st });
+  });
+  const idx = reminders.findIndex(r => r.isoDate === iso);
+  if (sick.length === 0) {
+    if (idx !== -1) { reminders.splice(idx, 1); saveReminders(reminders); renderReminders(); }
+    return;
+  }
+  const safe = getSafeDateStrings(iso);
+  const obj = { id: idx !== -1 ? reminders[idx].id : cryptoId(), isoDate: iso, dateStr: safe.dateStr, longStr: safe.longStr, name: student.name, klasse: student.klasse, items: sick };
+  if (idx !== -1) reminders[idx] = obj; else reminders.push(obj);
+  saveReminders(reminders);
+  renderReminders();
+}
+
+function renderReminders() {
+  const box = document.getElementById('reminderBox');
+  box.innerHTML = '';
+  if (reminders.length === 0) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+
+  reminders.forEach(r => {
+    const dl = getDeadlineInfo(r.isoDate);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.borderColor = dl.color;
+    card.style.background = 'rgba(255,255,255,0.9)';
+    card.innerHTML = `
+      <div class="flex-between" style="flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <strong style="font-size:0.875rem;">Schriftliche Entschuldigung abgeben</strong>
+          <span style="display:block; font-size:0.75rem; color:${dl.color}; font-weight:700;">${dl.text}</span>
+          <span style="font-size:0.75rem; color:var(--mute);">${r.longStr} (${(r.items||[]).map(i=>i.fach).join(', ')})</span>
+        </div>
+        <div style="display:flex; gap:0.4rem;">
+          <button class="btn-sub print-btn">Drucken</button>
+          <label class="btn-main" style="padding:0.4rem 0.75rem; font-size:0.75rem; cursor:pointer;">
+            📷 Nachweis
+            <input type="file" accept="image/*" capture="environment" class="hidden proof-in" data-id="${r.id}">
+          </label>
+        </div>
+      </div>
+    `;
+    card.querySelector('.print-btn').addEventListener('click', () => openPrint(r));
+    card.querySelector('.proof-in').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & speichere...</div>`;
+      const base64 = await compressImage(file);
+      await saveProofToDB({ id: r.id, isoDate: r.isoDate, dateStr: r.dateStr, name: r.name, klasse: r.klasse, items: r.items, image: base64, timestamp: Date.now() });
+      reminders = reminders.filter(x => x.id !== r.id);
+      saveReminders(reminders);
+      renderReminders();
+    });
+    box.appendChild(card);
+  });
+}
+renderReminders();
+
+function openPrint(r) {
+  const win = window.open('', '_blank');
+  if (!win) return alert("Popup blockiert.");
+  const safe = getSafeDateStrings(r.isoDate || new Date());
+  const dl = getDeadlineInfo(r.isoDate);
+  const rows = (r.items || []).filter(i => i.status !== 'entfaellt').map(i => `
+    <tr>
+      <td style="padding:4px; border-bottom:1px solid #ddd; font-weight:bold; color:#146B69;">${i.stunde||'–'}. Std.</td>
+      <td style="padding:4px; border-bottom:1px solid #ddd;">${i.fach}</td>
+      <td style="padding:4px; border-bottom:1px solid #ddd; text-align:right;">${i.lehrer||''}</td>
+    </tr>
+  `).join('');
+
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Entschuldigung</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; padding: 20px; background: #f0f0f0; }
+    .ticket { width: 140mm; height: 100mm; background: #fff; border: 1px dashed #999; padding: 8mm 10mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin: 4px 0; }
+    @media print { body { background: #fff; padding:0; } button { display:none; } }
+  </style></head><body>
+  <div class="ticket">
+    <div style="display:flex; justify-content:space-between; border-bottom:1.5px solid #146B69; padding-bottom:3px;">
+      <strong style="font-size:11pt; color:#146B69;">Entschuldigung</strong>
+      <div style="text-align:right;">Datum: <b>${safe.longStr}</b><br><span style="color:#B4432F;">Frist: ${dl.dlStr}</span></div>
+    </div>
+    <div style="background:#f8f9fa; padding:3px 6px; border-radius:4px;">Schüler/in: <b>${r.name||student.name}</b> (Klasse ${r.klasse||student.klasse})</div>
+    <table><thead><tr><th align="left">Std.</th><th align="left">Fach</th><th align="right">Lehrkraft</th></tr></thead><tbody>${rows}</tbody></table>
+    <p>Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben genannten Unterricht aus gesundheitlichen Gründen zu entschuldigen.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center;">
+      <div style="border-top:1px solid #666; padding-top:2px;">Ort, Datum</div>
+      <div style="border-top:1px solid #666; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
+    </div>
+  </div>
+  <div style="margin-top:20px;"><button onclick="window.print()" style="padding:8px 16px; background:#146B69; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Drucken</button></div>
+  </body></html>`);
+  win.document.close();
+}
+
+/* Untis Raster Logik */
+let curMonday = new Date();
+curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1));
+curMonday.setHours(12,0,0,0);
+
+document.getElementById('prevWeekBtn').addEventListener('click', () => { curMonday.setDate(curMonday.getDate() - 7); renderUntisWeek(); });
+document.getElementById('nextWeekBtn').addEventListener('click', () => { curMonday.setDate(curMonday.getDate() + 7); renderUntisWeek(); });
+document.getElementById('currentWeekBtn').addEventListener('click', () => { 
+  curMonday = new Date(); curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1)); curMonday.setHours(12,0,0,0);
+  renderUntisWeek(); 
+});
+
+function renderUntisWeek() {
+  const grid = document.getElementById('untisGrid');
+  grid.innerHTML = '';
+  const fri = new Date(curMonday); fri.setDate(fri.getDate() + 4);
+  document.getElementById('weekRangeLabel').textContent = `${curMonday.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})} – ${fri.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
+
+  let totalKrank = 0, totalVersp = 0;
+
+  WEEKDAYS.forEach((day, idx) => {
+    const d = new Date(curMonday); d.setDate(d.getDate() + idx);
+    const iso = toIsoDate(d);
+    const col = document.createElement('div');
+    col.className = 'grid-col';
+
+    const isToday = iso === toIsoDate(new Date());
+    const head = document.createElement('div');
+    head.className = 'grid-head';
+    if (isToday) head.style.background = 'var(--brand-light)';
+    head.innerHTML = `<strong>${day.slice(0,2)}</strong><br><span style="color:var(--mute);">${d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})}</span>`;
+    head.addEventListener('click', () => openDayModal(iso, day));
+    col.appendChild(head);
+
+    (schedule[day] || []).forEach(s => {
+      const st = statusLog[`${iso}|${s.id}`] || 'anwesend';
+      if (st === 'krank') totalKrank++;
+      if (st === 'verspaetung') totalVersp++;
+
+      const item = document.createElement('div');
+      item.className = 'grid-item' + (st !== 'anwesend' ? ` status-${st}` : '');
+      item.innerHTML = `<strong>${s.fach}</strong> <small>(${s.stunde||''})</small><br><span style="color:var(--mute);">${s.nachname}</span>`;
+      item.addEventListener('click', () => openCellModal(iso, day, s, st));
+      col.appendChild(item);
+    });
+
+    grid.appendChild(col);
+  });
+  document.getElementById('historyStats').textContent = `In dieser Woche: ${totalKrank} Std. krank, ${totalVersp} Std. verspätet.`;
+}
+
+/* Modals Handlers */
+let activeCell = null;
+function openCellModal(iso, day, s, curSt) {
+  activeCell = { iso, day, s };
+  document.getElementById('modalTitle').textContent = `${s.fach} (${s.stunde||''}. Std.)`;
+  document.getElementById('modalSub').textContent = `${day} · ${s.anrede} ${s.nachname}`;
+  const r = document.querySelector(`input[name="modalStatus"][value="${curSt}"]`) || document.querySelector(`input[name="modalStatus"][value="anwesend"]`);
+  r.checked = true;
+  document.getElementById('cellModal').classList.remove('hidden');
+}
+document.getElementById('modalCloseBtn').addEventListener('click', () => document.getElementById('cellModal').classList.add('hidden'));
+document.getElementById('modalSaveBtn').addEventListener('click', () => {
+  if (!activeCell) return;
+  const val = document.querySelector('input[name="modalStatus"]:checked').value;
+  const key = `${activeCell.iso}|${activeCell.s.id}`;
+  if (val === 'anwesend') delete statusLog[key]; else statusLog[key] = val;
+  saveStatusLog(statusLog);
+  syncReminderForDate(activeCell.iso, activeCell.day);
+  document.getElementById('cellModal').classList.add('hidden');
+  renderUntisWeek();
+});
+document.getElementById('modalPrintBtn').addEventListener('click', () => {
+  if (!activeCell) return;
+  const st = document.querySelector('input[name="modalStatus"]:checked').value;
+  openPrint({ isoDate: activeCell.iso, items: [{ fach: activeCell.s.fach, stunde: activeCell.s.stunde, lehrer: `${activeCell.s.anrede} ${activeCell.s.nachname}`, status: st }] });
+});
+
+let activeDay = null;
+function openDayModal(iso, day) {
+  activeDay = { iso, day };
+  document.getElementById('dayModalTitle').textContent = `${day}, ${getSafeDateStrings(iso).dateStr}`;
+  const list = document.getElementById('dayModalSubjectList');
+  list.innerHTML = '';
+  (schedule[day] || []).forEach(s => {
+    const cur = statusLog[`${iso}|${s.id}`] || 'anwesend';
+    const row = document.createElement('div');
+    row.className = 'flex-between';
+    row.style.fontSize = '0.75rem';
+    row.innerHTML = `<span><strong>${s.fach}</strong> (${s.stunde||''})</span>
+      <select class="day-sel input-box" data-id="${s.id}" style="width:auto; padding:0.2rem 0.4rem;">
+        <option value="anwesend" ${cur==='anwesend'?'selected':''}>Anwesend</option>
+        <option value="krank" ${cur==='krank'?'selected':''}>Krank</option>
+        <option value="verspaetung" ${cur==='verspaetung'?'selected':''}>Verspätet</option>
+        <option value="passiv" ${cur==='passiv'?'selected':''}>Sportbefreiung</option>
+        <option value="entfaellt" ${cur==='entfaellt'?'selected':''}>Entfällt</option>
+      </select>`;
+    list.appendChild(row);
+  });
+  document.getElementById('dayModal').classList.remove('hidden');
+}
+document.querySelectorAll('.day-set-status-btn').forEach(b => {
+  b.addEventListener('click', () => document.querySelectorAll('.day-sel').forEach(s => s.value = b.dataset.status));
+});
+document.getElementById('dayModalCloseBtn').addEventListener('click', () => document.getElementById('dayModal').classList.add('hidden'));
+document.getElementById('dayModalSaveBtn').addEventListener('click', () => {
+  if (!activeDay) return;
+  document.querySelectorAll('.day-sel').forEach(sel => {
+    const key = `${activeDay.iso}|${sel.dataset.id}`;
+    if (sel.value === 'anwesend') delete statusLog[key]; else statusLog[key] = sel.value;
+  });
+  saveStatusLog(statusLog);
+  syncReminderForDate(activeDay.iso, activeDay.day);
+  document.getElementById('dayModal').classList.add('hidden');
+  renderUntisWeek();
+});
+document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
+  if (!activeDay) return;
+  const items = [];
+  document.querySelectorAll('.day-sel').forEach(sel => {
+    if (sel.value === 'krank' || sel.value === 'passiv') {
+      const s = (schedule[activeDay.day]||[]).find(x => x.id === sel.dataset.id);
+      if (s) items.push({ fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: sel.value });
+    }
+  });
+  if (items.length === 0) return alert("Keine Fehlzeiten an diesem Tag.");
+  openPrint({ isoDate: activeDay.iso, items });
+});
+
+/* Senden */
+document.getElementById('sendBtn').addEventListener('click', () => {
+  student.name = document.getElementById('stuName').value.trim();
+  student.klasse = document.getElementById('stuKlasse').value.trim();
+  saveStudent(student);
+
+  const day = daySelect.value;
+  const nowD = new Date();
+  let diff = (['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'].indexOf(day) + 1) - nowD.getDay();
+  if (diff < 0) diff += 7;
+  const target = new Date(nowD); target.setDate(nowD.getDate() + diff);
+  const iso = toIsoDate(target);
+
+  const checked = [...document.querySelectorAll('.subj-check:checked')].map(c => c.dataset.id);
+  const chosen = (schedule[day] || []).filter(s => checked.includes(s.id));
+  if (chosen.length === 0) return alert("Kein Fach ausgewählt.");
+
+  const meldeArt = document.querySelector('input[name="meldeArt"]:checked').value;
+  chosen.forEach(s => { statusLog[`${iso}|${s.id}`] = meldeArt; });
+  saveStatusLog(statusLog);
+
+  if (meldeArt === 'krank') syncReminderForDate(iso, day);
+
+  const emails = chosen.map(s => s.email).join(',');
+  const sub = encodeURIComponent(`Krankmeldung ${student.name} (${student.klasse}) – ${target.toLocaleDateString('de-DE')}`);
+  const body = encodeURIComponent(`Sehr geehrte Damen und Herren,\n\nich kann heute krankheitsbedingt nicht am Unterricht teilnehmen.\n\nMit freundlichen Grüßen\n${student.name}`);
+  window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
+});
+
+/* Archiv */
+document.getElementById('openArchiveBtn').addEventListener('click', async () => {
+  document.getElementById('archiveModal').classList.remove('hidden');
+  const box = document.getElementById('archiveContent');
+  box.innerHTML = 'Lade...';
+  const list = await getAllProofsFromDB();
+  if (list.length === 0) { box.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--mute);">Keine Belege vorhanden.</p>'; return; }
+  box.innerHTML = '';
+  list.forEach(p => {
+    const d = document.createElement('div');
+    d.style.marginBottom = '1rem';
+    d.innerHTML = `<strong>${p.dateStr}</strong> - ${(p.items||[]).map(i=>i.fach).join(', ')}<br>
+      <img src="${p.image}" style="max-width:100%; border-radius:0.5rem; margin-top:0.3rem;">
+      <button class="btn-sub del-p" style="color:var(--bad); margin-top:0.3rem;">Löschen</button>`;
+    d.querySelector('.del-p').addEventListener('click', async () => {
+      await deleteProofFromDB(p.id);
+      d.remove();
+    });
+    box.appendChild(d);
+  });
+});
+document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
+
+/* Schedule Editor – Neuer saubere Tabellen-Stil */
+const openScheduleDays = new Set([curWeekday || 'Montag']);
+
+function renderScheduleEditor() {
+  const ed = document.getElementById('scheduleEditor');
+  ed.innerHTML = '';
+  
+  WEEKDAYS.forEach(day => {
+    const subs = schedule[day] || [];
+    const count = subs.length;
+    const isOpen = openScheduleDays.has(day);
+
+    const block = document.createElement('details');
+    block.className = 'schedule-day-block';
+    block.open = isOpen;
+    block.addEventListener('toggle', () => {
+      if (block.open) openScheduleDays.add(day);
+      else openScheduleDays.delete(day);
+    });
+
+    block.innerHTML = `
+      <summary class="schedule-day-summary">
+        <span class="schedule-day-title">${day}</span>
+        <span class="schedule-day-count">${count} ${count === 1 ? 'Fach' : 'Fächer'}</span>
+      </summary>
+      <div class="schedule-day-content">
+        <div class="schedule-rows-container" data-day="${day}"></div>
+        <button type="button" class="btn-add-subject" data-add-to="${day}">
+          + Fach hinzufügen
+        </button>
+      </div>
+    `;
+
+    const rowsContainer = block.querySelector(`[data-day="${day}"]`);
+
+    subs.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <input class="schedule-input" value="${escapeAttr(s.fach)}" placeholder="Fach" data-field="fach">
+        <select class="schedule-input" data-field="anrede">
+          <option value="Herr" ${s.anrede === 'Herr' ? 'selected' : ''}>Herr</option>
+          <option value="Frau" ${s.anrede === 'Frau' ? 'selected' : ''}>Frau</option>
+        </select>
+        <input class="schedule-input" value="${escapeAttr(s.nachname)}" placeholder="Nachname" data-field="nachname">
+        <input class="schedule-input" type="email" value="${escapeAttr(s.email)}" placeholder="E-Mail" data-field="email">
+        <input class="schedule-input" value="${escapeAttr(s.stunde || '')}" placeholder="Std." data-field="stunde">
+        <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
+      `;
+
+      row.querySelectorAll('input, select').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          s[e.target.dataset.field] = e.target.value;
+        });
+      });
+
+      row.querySelector('.btn-del-subject').addEventListener('click', () => {
+        schedule[day].splice(i, 1);
+        renderScheduleEditor();
+      });
+
+      rowsContainer.appendChild(row);
+    });
+
+    block.querySelector(`[data-add-to="${day}"]`).addEventListener('click', () => {
+      openScheduleDays.add(day);
+      schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
+      renderScheduleEditor();
+    });
+
+    ed.appendChild(block);
+  });
+}
+
+function escapeAttr(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+renderScheduleEditor();
+
+document.getElementById('saveSettings').addEventListener('click', () => {
+  saveSchedule(schedule);
+  settings.apiEndpoint = document.getElementById('apiEndpoint').value.trim();
+  saveSettings(settings);
+  renderSubjects();
+  renderUntisWeek();
+  document.getElementById('saveNote').classList.remove('hidden');
+  setTimeout(() => document.getElementById('saveNote').classList.add('hidden'), 2000);
+});
+
+document.getElementById('resetSettings').addEventListener('click', () => {
+  if (confirm("Möchtest du den Stundenplan wirklich auf die Standardeinstellungen zurücksetzen?")) {
+    schedule = structuredClone(DEFAULT_SCHEDULE);
+    saveSchedule(schedule);
+    renderScheduleEditor();
+    renderSubjects();
+    renderUntisWeek();
+  }
+});
+</script>
+</body>
+</html>
