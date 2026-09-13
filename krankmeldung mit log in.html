@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Krankmeldung</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: '#1B2430',
+            mute: '#66707E',
+            line: '#E3E7ED',
+            surface: '#FFFFFF',
+            canvas: '#F5F7FA',
+            brand: { DEFAULT: '#146B69', dark: '#0E4E4D', light: '#E3F0EF' },
+            warn: { DEFAULT: '#C4762A', light: '#FBEDE0' },
+            bad: '#B4432F'
+          },
+          borderRadius: { xl2: '1.1rem' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    ::selection { background: #C7E2E0; }
+    .focus-ring:focus-visible { outline: 2px solid #146B69; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+    .tab-btn[data-active="true"] {
+      color: #146B69;
+      border-color: #146B69;
+    }
+    input[type="checkbox"].subj-check {
+      accent-color: #146B69;
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-canvas text-ink min-h-screen">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+  <!-- Kopfbereich mit Auth-Status -->
+  <header class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">Krankmeldung</h1>
+      <p id="todayLine" class="text-sm text-mute mt-1">–</p>
+    </div>
+    <div class="flex flex-col items-end gap-2">
+      <div class="rounded-xl2 bg-brand-light text-brand-dark px-3 py-2 text-center leading-tight">
+        <div id="headerWeekday" class="text-sm font-semibold">–</div>
+        <div id="headerDate" class="text-xs">–</div>
+      </div>
+      <button id="authBtn" class="text-xs px-2.5 py-1 rounded-lg border border-line bg-surface hover:bg-canvas text-mute font-medium focus-ring flex items-center gap-1.5 shadow-2xs">
+        <span>☁️</span>
+        <span id="authBtnLabel">Anmelden (Cloud-Sync)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="flex gap-6 border-b border-line mb-6">
+    <button data-tab="melden" data-active="true" class="tab-btn pb-3 text-sm font-semibold text-mute border-b-2 border-transparent focus-ring">Krankmelden</button>
+    <button data-tab="history" data-active="false" class="tab-btn pb-3 text-sm font-semibold text-mute border-b-2 border-transparent focus-ring">Fehltage & Stundenplan</button>
+    <button data-tab="settings" data-active="false" class="tab-btn pb-3 text-sm font-semibold text-mute border-b-2 border-transparent focus-ring">Einstellungen</button>
+  </nav>
+
+  <!-- ===================== TAB: KRANKMELDEN ===================== -->
+  <section id="panel-melden" class="space-y-5">
+    <div id="reminderBox" class="space-y-2.5 hidden"></div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-mute mb-3">Art der Meldung</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="meldeArt" value="krank" checked class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">Krankmeldung</span>
+            <span class="block text-xs text-mute">Fällt heute ganz oder teilweise aus</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="meldeArt" value="verspaetung" class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">Verspätung</span>
+            <span class="block text-xs text-mute">Kommt heute später zum Unterricht</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-mute mb-3">Angaben</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="stuName" class="block text-xs text-mute mb-1">Name</label>
+          <input id="stuName" type="text" placeholder="Vor- und Nachname"
+            class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+        <div>
+          <label for="stuKlasse" class="block text-xs text-mute mb-1">Klasse</label>
+          <input id="stuKlasse" type="text" placeholder="z. B. 11G1"
+            class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-3 gap-3">
+        <h2 class="text-sm font-semibold text-mute">Fächer</h2>
+        <select id="daySelect" class="rounded-lg border border-line px-2 py-1.5 text-sm focus-ring"></select>
+      </div>
+      <div id="weekendNote" class="hidden text-xs text-warn bg-warn-light rounded-lg px-3 py-2 mb-3"></div>
+      <div id="subjectList" class="space-y-2"></div>
+      <div id="noSubjects" class="hidden text-sm text-mute py-4 text-center">
+        Für diesen Tag sind noch keine Fächer hinterlegt. Trag sie unter „Einstellungen“ ein.
+      </div>
+      <div class="flex gap-4 mt-3 text-xs">
+        <button id="selectAll" class="text-brand font-medium hover:underline focus-ring">Alle auswählen</button>
+        <button id="selectNone" class="text-brand font-medium hover:underline focus-ring">Keine auswählen</button>
+      </div>
+    </div>
+
+    <div id="verspaetungCard" class="bg-surface border border-line rounded-xl2 p-4 sm:p-5 hidden">
+      <h2 class="text-sm font-semibold text-mute mb-3">Verspätungsangaben</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="ankunftszeit" class="block text-xs text-mute mb-1">Voraussichtliche Ankunft</label>
+          <input id="ankunftszeit" type="time"
+            class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+        <div>
+          <label for="verspaetungGrund" class="block text-xs text-mute mb-1">Grund (optional)</label>
+          <input id="verspaetungGrund" type="text" placeholder="z. B. Bus verpasst"
+            class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-mute mb-3">Versandart</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="mode" value="mailto" checked class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">Sofortstart</span>
+            <span class="block text-xs text-mute">Öffnet jede Mail in deinem Mail-Programm</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="mode" value="api" class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">SMTP-API</span>
+            <span class="block text-xs text-mute">Verschickt automatisch über dein Backend</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-mute mb-3">Empfänger</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="recipientMode" value="combined" checked class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">Eine E-Mail an alle</span>
+            <span class="block text-xs text-mute">Alle Lehrkräfte im An-Feld</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+          <input type="radio" name="recipientMode" value="separate" class="mt-0.5 accent-brand">
+          <span>
+            <span class="block text-sm font-medium text-ink">Getrennte E-Mails</span>
+            <span class="block text-xs text-mute">Jede Lehrkraft bekommt eine eigene Mail</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <button id="sendBtn" class="w-full rounded-xl2 bg-brand hover:bg-brand-dark text-white font-semibold text-base py-4 shadow-sm focus-ring transition-colors">
+      Heute krankmelden
+    </button>
+
+    <div id="results" class="space-y-3 hidden"></div>
+  </section>
+
+  <!-- ===================== TAB: FEHLTAGE / STUNDENPLAN ===================== -->
+  <section id="panel-history" class="space-y-5 hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-surface border border-line rounded-xl2 p-4">
+      <div class="flex items-center gap-2">
+        <button id="prevWeekBtn" class="p-2 rounded-lg border border-line hover:bg-canvas text-sm font-semibold">◀</button>
+        <button id="currentWeekBtn" class="px-3 py-1.5 rounded-lg border border-line hover:bg-canvas text-xs font-semibold text-brand">Heute</button>
+        <button id="nextWeekBtn" class="p-2 rounded-lg border border-line hover:bg-canvas text-sm font-semibold">▶</button>
+        <span id="weekRangeLabel" class="text-sm font-semibold text-ink ml-2">–</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="openArchiveBtn" class="rounded-lg border border-line bg-canvas hover:bg-line text-ink text-xs font-semibold px-3 py-2 focus-ring">
+          📁 Nachweise-Ordner
+        </button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-mute px-1">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm border border-bad/30 bg-bad/10"></span> Gefehlt (Krank)</div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm border border-warn/30 bg-warn/15"></span> Verspätet</div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm border border-sky-300 bg-sky-100"></span> Sportbefreiung</div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm border border-dashed border-mute/50 bg-slate-100 line-through"></span> Entfällt</div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm border border-line bg-surface"></span> Normal</div>
+      </div>
+      <span class="text-[11px] text-brand font-medium">💡 Klick auf den Wochentag oben = Ganzen Tag bearbeiten</span>
+    </div>
+
+    <div class="overflow-x-auto hide-scrollbar border border-line rounded-xl2 bg-surface shadow-sm">
+      <div id="untisGrid" class="grid grid-cols-5 min-w-[700px] divide-x divide-line"></div>
+    </div>
+
+    <p id="historyStats" class="text-xs text-mute text-right">–</p>
+  </section>
+
+  <!-- ===================== TAB: EINSTELLUNGEN ===================== -->
+  <section id="panel-settings" class="space-y-5 hidden">
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-mute mb-3">SMTP-API-Endpunkt</h2>
+      <p class="text-xs text-mute mb-2">Wird nur im Modus „SMTP-API“ verwendet.</p>
+      <input id="apiEndpoint" type="url" placeholder="https://mein-backend.example.com/send-mail"
+        class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl2 p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-mute">Regulärer Stundenplan</h2>
+      </div>
+      <div id="scheduleEditor" class="space-y-4"></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button id="saveSettings" class="flex-1 rounded-xl2 bg-brand hover:bg-brand-dark text-white font-semibold text-sm py-3 focus-ring transition-colors">
+        Speichern
+      </button>
+      <button id="resetSettings" class="rounded-xl2 border border-line text-mute font-medium text-sm px-4 py-3 hover:bg-canvas focus-ring">
+        Zurücksetzen
+      </button>
+    </div>
+    <p id="saveNote" class="text-xs text-brand-dark hidden">Gespeichert.</p>
+  </section>
+
+</div>
+
+<!-- Modal: Authentifizierung mit Google & E-Mail -->
+<div id="authModal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-surface rounded-xl2 border border-line max-w-sm w-full p-5 shadow-2xl space-y-4">
+    <div class="flex items-start justify-between">
+      <div>
+        <h3 id="authModalTitle" class="text-base font-bold text-ink">Cloud-Konto</h3>
+        <p class="text-xs text-mute mt-0.5">Synchronisiere dein Handy und iPad</p>
+      </div>
+      <button id="closeAuthModalBtn" class="text-mute hover:text-bad text-lg font-bold">✕</button>
+    </div>
+
+    <div id="authUserInfo" class="hidden space-y-3">
+      <p class="text-xs text-ink">Angemeldet als: <span id="authUserEmail" class="font-bold text-brand"></span></p>
+      <button id="logoutBtn" class="w-full py-2.5 rounded-lg border border-bad text-bad hover:bg-bad/10 text-xs font-semibold focus-ring">
+        Abmelden
+      </button>
+    </div>
+
+    <div id="authActions" class="space-y-3">
+      <!-- 1-Klick Google Login -->
+      <button type="button" id="googleLoginBtn" class="w-full py-2.5 px-3 rounded-lg border border-line bg-surface hover:bg-canvas text-ink text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs focus-ring">
+        <svg class="w-4 h-4" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Mit Google fortfahren</span>
+      </button>
+
+      <div class="flex items-center my-2">
+        <div class="flex-grow border-t border-line"></div>
+        <span class="px-2 text-[10px] text-mute uppercase font-semibold">oder mit E-Mail</span>
+        <div class="flex-grow border-t border-line"></div>
+      </div>
+
+      <form id="authForm" class="space-y-3">
+        <div>
+          <label for="authEmail" class="block text-xs text-mute mb-1">E-Mail</label>
+          <input id="authEmail" type="email" placeholder="deine@schule.de" class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+        <div>
+          <label for="authPassword" class="block text-xs text-mute mb-1">Passwort (mind. 6 Zeichen)</label>
+          <input id="authPassword" type="password" placeholder="••••••••" class="w-full rounded-lg border border-line px-3 py-2 text-sm focus-ring">
+        </div>
+        <p id="authError" class="text-xs text-bad hidden"></p>
+        <div class="flex gap-2 pt-1">
+          <button type="submit" id="loginSubmitBtn" class="flex-1 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-xs font-semibold focus-ring">
+            Anmelden
+          </button>
+          <button type="button" id="registerSubmitBtn" class="flex-1 py-2 rounded-lg border border-brand text-brand hover:bg-brand-light text-xs font-semibold focus-ring">
+            Registrieren
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Einzelne Stunde bearbeiten -->
+<div id="cellModal" class="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-surface rounded-xl2 border border-line max-w-sm w-full p-5 shadow-xl space-y-4">
+    <div>
+      <h3 id="modalTitle" class="text-base font-bold text-ink">Stunde bearbeiten</h3>
+      <p id="modalSub" class="text-xs text-mute mt-0.5">–</p>
+    </div>
+    <div class="space-y-2 text-sm">
+      <label class="flex items-center gap-2.5 p-2 rounded-lg border border-line cursor-pointer hover:bg-canvas">
+        <input type="radio" name="modalStatus" value="anwesend" class="accent-brand"> 
+        <span>Normal anwesend</span>
+      </label>
+      <label class="flex items-center gap-2.5 p-2 rounded-lg border border-bad/30 bg-bad/5 cursor-pointer hover:bg-bad/10 text-bad">
+        <input type="radio" name="modalStatus" value="krank" class="accent-brand"> 
+        <span class="font-medium">Gefehlt (Krank)</span>
+      </label>
+      <label class="flex items-center gap-2.5 p-2 rounded-lg border border-warn/30 bg-warn/5 cursor-pointer hover:bg-warn/10 text-warn">
+        <input type="radio" name="modalStatus" value="verspaetung" class="accent-brand"> 
+        <span class="font-medium">Verspätet</span>
+      </label>
+      <label class="flex items-center gap-2.5 p-2 rounded-lg border border-sky-300 bg-sky-50 cursor-pointer hover:bg-sky-100 text-sky-800">
+        <input type="radio" name="modalStatus" value="passiv" class="accent-brand"> 
+        <span class="font-medium">Sportbefreiung (anwesend, nicht aktiv)</span>
+      </label>
+      <label class="flex items-center gap-2.5 p-2 rounded-lg border border-dashed border-mute/50 bg-slate-50 cursor-pointer hover:bg-slate-100 text-mute">
+        <input type="radio" name="modalStatus" value="entfaellt" class="accent-brand"> 
+        <span class="font-medium">Entfällt / Unterrichtsausfall</span>
+      </label>
+    </div>
+    <div class="flex flex-col gap-2 pt-2">
+      <button id="modalPrintBtn" class="w-full py-2.5 rounded-lg border border-brand text-brand hover:bg-brand-light text-xs font-semibold focus-ring">
+        Vorlage für diese Stunde drucken
+      </button>
+      <div class="flex gap-2">
+        <button id="modalSaveBtn" class="flex-1 py-2.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-dark focus-ring">Speichern</button>
+        <button id="modalCloseBtn" class="px-4 py-2.5 rounded-lg border border-line text-mute text-xs font-semibold hover:bg-canvas focus-ring">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ganzen Tag bearbeiten -->
+<div id="dayModal" class="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-surface rounded-xl2 border border-line max-w-md w-full p-5 shadow-xl space-y-4">
+    <div>
+      <h3 id="dayModalTitle" class="text-base font-bold text-ink">Ganzen Tag bearbeiten</h3>
+      <p id="dayModalSub" class="text-xs text-mute mt-0.5">Wähle den Status für die Stunden dieses Tages</p>
+    </div>
+
+    <div class="bg-canvas p-3 rounded-lg border border-line">
+      <p class="text-xs font-semibold text-mute mb-2">Alle Stunden des Tages setzen auf:</p>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <button type="button" class="day-set-status-btn p-2 rounded border border-line bg-surface hover:bg-slate-50 text-left font-medium" data-status="anwesend">Normal anwesend</button>
+        <button type="button" class="day-set-status-btn p-2 rounded border border-bad/30 bg-bad/10 text-bad hover:bg-bad/20 text-left font-bold" data-status="krank">Ganztägig krank</button>
+        <button type="button" class="day-set-status-btn p-2 rounded border border-warn/30 bg-warn/15 text-warn hover:bg-warn/25 text-left font-bold" data-status="verspaetung">Verspätung</button>
+        <button type="button" class="day-set-status-btn p-2 rounded border border-dashed border-mute/50 bg-slate-100 text-mute hover:bg-slate-200 text-left font-bold" data-status="entfaellt">Alles entfällt</button>
+      </div>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold text-mute mb-2">Einzelne Stunden anpassen:</p>
+      <div id="dayModalSubjectList" class="space-y-2 max-h-44 overflow-y-auto pr-1"></div>
+    </div>
+
+    <div class="flex flex-col gap-2 pt-2">
+      <button id="dayModalPrintAllBtn" class="w-full py-2.5 rounded-lg bg-brand hover:bg-brand-dark text-white text-xs font-semibold focus-ring">
+        Entschuldigung für gefehlte Stunden drucken
+      </button>
+      <div class="flex gap-2">
+        <button id="dayModalSaveBtn" class="flex-1 py-2 rounded-lg border border-brand text-brand hover:bg-brand-light text-xs font-semibold focus-ring">Änderungen speichern</button>
+        <button id="dayModalCloseBtn" class="px-4 py-2 rounded-lg border border-line text-mute text-xs font-semibold hover:bg-canvas focus-ring">Schließen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nachweise-Ordner -->
+<div id="archiveModal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-surface rounded-xl2 border border-line max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div class="p-4 border-b border-line flex items-center justify-between">
+      <h3 class="text-base font-bold text-ink">📁 Nachweise-Ordner (Unterschriebene Zettel)</h3>
+      <button id="closeArchiveBtn" class="text-mute hover:text-bad text-lg font-bold">✕</button>
+    </div>
+    <div id="archiveContent" class="p-5 overflow-y-auto space-y-4 flex-1"></div>
+  </div>
+</div>
+
+<div id="imageViewerModal" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 hidden" onclick="this.classList.add('hidden')">
+  <img id="imageViewerImg" src="" alt="Nachweis Vollbild" class="max-h-full max-w-full rounded-lg object-contain">
+</div>
+
+<!-- Firebase SDK Module -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+  import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    signOut, 
+    onAuthStateChanged 
+  } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+  import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    onSnapshot 
+  } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAP2-B7b4pLj6viUkIm5373250rXge9luA",
+    authDomain: "krankmeldung-2df95.firebaseapp.com",
+    projectId: "krankmeldung-2df95",
+    storageBucket: "krankmeldung-2df95.firebasestorage.app",
+    messagingSenderId: "995117065431",
+    appId: "1:995117065431:web:8af45d1d71cc93735d3c92"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  let currentUser = null;
+  let unsubscribeDoc = null;
+
+  window.fbSync = {
+    saveUserData: async function(data) {
+      if (!currentUser) return;
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userRef, data, { merge: true });
+      } catch (err) {
+        console.error("Firebase Sync Fehler:", err);
+      }
+    }
+  };
+
+  const authBtnLabel = document.getElementById('authBtnLabel');
+  const authBtn = document.getElementById('authBtn');
+  const authModal = document.getElementById('authModal');
+  const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
+  const authForm = document.getElementById('authForm');
+  const authActions = document.getElementById('authActions');
+  const authUserInfo = document.getElementById('authUserInfo');
+  const authUserEmail = document.getElementById('authUserEmail');
+  const authError = document.getElementById('authError');
+  const googleLoginBtn = document.getElementById('googleLoginBtn');
+
+  authBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
+  closeAuthModalBtn.addEventListener('click', () => authModal.classList.add('hidden'));
+
+  // Google Login
+  googleLoginBtn.addEventListener('click', async () => {
+    authError.classList.add('hidden');
+    try {
+      await signInWithPopup(auth, googleProvider);
+      authModal.classList.add('hidden');
+    } catch (err) {
+      authError.textContent = "Google-Anmeldung: " + err.message;
+      authError.classList.remove('hidden');
+    }
+  });
+
+  // E-Mail Login
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.classList.add('hidden');
+    const email = document.getElementById('authEmail').value.trim();
+    const pass = document.getElementById('authPassword').value;
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      authModal.classList.add('hidden');
+    } catch (err) {
+      authError.textContent = "Fehler: " + err.message;
+      authError.classList.remove('hidden');
+    }
+  });
+
+  // E-Mail Registrierung
+  document.getElementById('registerSubmitBtn').addEventListener('click', async () => {
+    authError.classList.add('hidden');
+    const email = document.getElementById('authEmail').value.trim();
+    const pass = document.getElementById('authPassword').value;
+    if (!email || pass.length < 6) {
+      authError.textContent = "Passwort muss mind. 6 Zeichen lang sein.";
+      authError.classList.remove('hidden');
+      return;
+    }
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+      authModal.classList.add('hidden');
+    } catch (err) {
+      authError.textContent = "Fehler: " + err.message;
+      authError.classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await signOut(auth);
+  });
+
+  // Auth State Listener
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+
+    if (user) {
+      const displayName = user.displayName || user.email.split('@')[0];
+      authBtnLabel.textContent = displayName;
+      authBtn.classList.replace('text-mute', 'text-brand');
+      authActions.classList.add('hidden');
+      authUserInfo.classList.remove('hidden');
+      authUserEmail.textContent = user.email;
+
+      const userRef = doc(db, 'users', user.uid);
+      unsubscribeDoc = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          if (window.applyCloudData) window.applyCloudData(cloudData);
+        } else {
+          if (window.pushAllToCloud) window.pushAllToCloud();
+        }
+      });
+    } else {
+      authBtnLabel.textContent = 'Anmelden (Cloud-Sync)';
+      authBtn.classList.replace('text-brand', 'text-mute');
+      authActions.classList.remove('hidden');
+      authUserInfo.classList.add('hidden');
+    }
+  });
+</script>
+
+<script>
+/* ---------------------------------------------------------------------
+   IndexedDB Helfer
+--------------------------------------------------------------------- */
+const DB_NAME = 'KrankmeldungDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'nachweise';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveProofToDB(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getAllProofsFromDB() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function deleteProofFromDB(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function compressImage(file, maxWidth = 1200, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+}
+
+/* ---------------------------------------------------------------------
+   State & Konstanten
+--------------------------------------------------------------------- */
+const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+const LS_SCHEDULE = 'krankmelden_stundenplan';
+const LS_STUDENT  = 'krankmelden_schueler';
+const LS_SETTINGS = 'krankmelden_settings';
+const LS_REMINDERS = 'krankmelden_erinnerungen';
+const LS_STATUS_LOG = 'krankmelden_status_log';
+
+const DEFAULT_SCHEDULE = {
+  Montag: [
+    { id: 'm1', fach: 'Geschichte', anrede: 'Herr', nachname: 'Koch', email: 'alexander.koch@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'm2', fach: 'Physik', anrede: 'Frau', nachname: 'Bierwirth', email: 'rebekka.bierwirth@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'm3', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '5' },
+    { id: 'm4', fach: 'Erdkunde', anrede: 'Frau', nachname: 'Nürnberger-Wolf', email: 'j.nuernberger-wolf@kgs-badlauterberg.de', stunde: '6' }
+  ],
+  Dienstag: [
+    { id: 'di1', fach: 'WPK', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '2' },
+    { id: 'di2', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'di3', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'di4', fach: 'Kunst', anrede: 'Frau', nachname: 'Leise', email: 'louisa.leise@kgs-badlauterberg.de', stunde: '7/8' }
+  ],
+  Mittwoch: [
+    { id: 'mi1', fach: 'Bio', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'mi2', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'mi3', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'mi4', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '5/6' },
+    { id: 'mi5', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '7/8' }
+  ],
+  Donnerstag: [
+    { id: 'do1', fach: 'Werte & Normen', anrede: 'Frau', nachname: 'Requardt', email: 'aiden.requardt@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'do2', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '3/4' }
+  ],
+  Freitag: [
+    { id: 'fr1', fach: 'WPK', anrede: 'Frau', nachname: 'Alert', email: 'andrea.alert@kgs-badlauterberg.de', stunde: '1/2' },
+    { id: 'fr2', fach: 'Chemie', anrede: 'Herr', nachname: 'Pauls', email: 'michael.pauls@kgs-badlauterberg.de', stunde: '3/4' },
+    { id: 'fr3', fach: 'Sport', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' }
+  ]
+};
+
+const DEFAULT_STUDENT = { name: 'Moaz Abdulaziz', klasse: '11G1' };
+
+function cryptoId() { return 'x' + Math.random().toString(36).slice(2, 10); }
+
+function loadSchedule() {
+  try {
+    const raw = localStorage.getItem(LS_SCHEDULE);
+    if (!raw) return structuredClone(DEFAULT_SCHEDULE);
+    const parsed = JSON.parse(raw);
+    WEEKDAYS.forEach(d => { if (!Array.isArray(parsed[d])) parsed[d] = []; });
+    return parsed;
+  } catch { return structuredClone(DEFAULT_SCHEDULE); }
+}
+function saveSchedule(s) {
+  localStorage.setItem(LS_SCHEDULE, JSON.stringify(s));
+  syncWithCloud();
+}
+
+function loadStudent() {
+  try { return JSON.parse(localStorage.getItem(LS_STUDENT)) || { ...DEFAULT_STUDENT }; }
+  catch { return { ...DEFAULT_STUDENT }; }
+}
+function saveStudent(s) {
+  localStorage.setItem(LS_STUDENT, JSON.stringify(s));
+  syncWithCloud();
+}
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(LS_SETTINGS)) || { apiEndpoint: '' }; }
+  catch { return { apiEndpoint: '' }; }
+}
+function saveSettings(s) {
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+  syncWithCloud();
+}
+
+function loadReminders() {
+  try { return JSON.parse(localStorage.getItem(LS_REMINDERS)) || []; }
+  catch { return []; }
+}
+function saveReminders(r) {
+  localStorage.setItem(LS_REMINDERS, JSON.stringify(r));
+  syncWithCloud();
+}
+
+function loadStatusLog() {
+  try { return JSON.parse(localStorage.getItem(LS_STATUS_LOG)) || {}; }
+  catch { return {}; }
+}
+function saveStatusLog(l) {
+  localStorage.setItem(LS_STATUS_LOG, JSON.stringify(l));
+  syncWithCloud();
+}
+
+let schedule = loadSchedule();
+let student  = loadStudent();
+let settings = loadSettings();
+let reminders = loadReminders();
+let statusLog = loadStatusLog();
+
+function syncWithCloud() {
+  if (window.fbSync) {
+    window.fbSync.saveUserData({
+      schedule,
+      student,
+      settings,
+      reminders,
+      statusLog
+    });
+  }
+}
+
+window.pushAllToCloud = syncWithCloud;
+
+window.applyCloudData = function(data) {
+  if (!data) return;
+  if (data.schedule) { schedule = data.schedule; localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); renderScheduleEditor(); }
+  if (data.student) { student = data.student; localStorage.setItem(LS_STUDENT, JSON.stringify(student)); document.getElementById('stuName').value = student.name || ''; document.getElementById('stuKlasse').value = student.klasse || ''; }
+  if (data.settings) { settings = data.settings; localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+  if (data.reminders) { reminders = data.reminders; localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); renderReminders(); }
+  if (data.statusLog) { statusLog = data.statusLog; localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); renderUntisWeek(); }
+  renderSubjects();
+};
+
+function toIsoDate(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseIsoLocal(isoStr) {
+  if (!isoStr) return new Date();
+  const parts = isoStr.split('-');
+  if (parts.length !== 3) return new Date();
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+}
+
+function getSafeDateStrings(dateOrIso) {
+  const d = typeof dateOrIso === 'string' ? parseIsoLocal(dateOrIso) : new Date(dateOrIso);
+  const dateStr = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const weekday = d.toLocaleDateString('de-DE', { weekday: 'long' });
+  return {
+    dateStr: dateStr,
+    longStr: `${weekday}, ${dateStr}`
+  };
+}
+
+function getDeadlineInfo(isoDate) {
+  const d = parseIsoLocal(isoDate);
+  const deadline = new Date(d);
+  deadline.setDate(deadline.getDate() + 7);
+  deadline.setHours(23, 59, 59, 999);
+
+  const deadlineDateStr = deadline.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  const deadlineMidnight = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 12, 0, 0);
+  const daysLeft = Math.round((deadlineMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
+
+  let level, badgeText, badgeClass;
+  if (daysLeft < 0) {
+    level = 'overdue';
+    const overdueDays = Math.abs(daysLeft);
+    badgeText = `⚠️ Frist überschritten (seit ${overdueDays} Tag${overdueDays === 1 ? '' : 'en'})`;
+    badgeClass = 'bg-bad text-white font-bold animate-pulse';
+  } else if (daysLeft === 0) {
+    level = 'today';
+    badgeText = `🚨 Frist läuft HEUTE ab!`;
+    badgeClass = 'bg-bad text-white font-bold';
+  } else if (daysLeft === 1) {
+    level = 'urgent';
+    badgeText = `⏳ Nur noch 1 Tag verbleibend`;
+    badgeClass = 'bg-bad/10 text-bad font-semibold border border-bad/30';
+  } else if (daysLeft <= 3) {
+    level = 'warning';
+    badgeText = `Frist bald fällig – noch ${daysLeft} Tage`;
+    badgeClass = 'bg-warn-light text-warn font-semibold border border-warn/30';
+  } else {
+    level = 'normal';
+    badgeText = `Noch ${daysLeft} Tage Zeit (bis ${deadlineDateStr})`;
+    badgeClass = 'bg-black/5 text-mute font-medium';
+  }
+
+  return { deadline, deadlineDateStr, daysLeft, level, badgeText, badgeClass };
+}
+
+function getTodayInfo() {
+  const now = new Date();
+  const jsDay = now.getDay();
+  const map = { 1: 'Montag', 2: 'Dienstag', 3: 'Mittwoch', 4: 'Donnerstag', 5: 'Freitag' };
+  const weekday = map[jsDay] || null;
+  const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const longStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  return { weekday, dateStr, longStr, isWeekend: !weekday, date: now };
+}
+const today = getTodayInfo();
+
+document.getElementById('headerWeekday').textContent = today.weekday || 'Wochenende';
+document.getElementById('headerDate').textContent = today.dateStr;
+document.getElementById('todayLine').textContent = today.isWeekend
+  ? 'Heute ist kein Schultag – wähle unten einen Tag zum Melden.'
+  : `Heute ist ${today.longStr}.`;
+
+/* Tabs */
+const tabButtons = document.querySelectorAll('.tab-btn');
+const panels = {
+  melden: document.getElementById('panel-melden'),
+  history: document.getElementById('panel-history'),
+  settings: document.getElementById('panel-settings')
+};
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabButtons.forEach(b => b.dataset.active = 'false');
+    btn.dataset.active = 'true';
+    Object.entries(panels).forEach(([key, el]) => el.classList.toggle('hidden', key !== btn.dataset.tab));
+    if (btn.dataset.tab === 'history') renderUntisWeek();
+    if (btn.dataset.tab === 'melden') renderReminders();
+  });
+});
+
+/* ---------------------------------------------------------------------
+   TAB 1: Melden Logik
+--------------------------------------------------------------------- */
+const daySelect = document.getElementById('daySelect');
+WEEKDAYS.forEach(d => {
+  const opt = document.createElement('option');
+  opt.value = d; opt.textContent = d;
+  daySelect.appendChild(opt);
+});
+daySelect.value = today.weekday || 'Montag';
+
+const WEEKDAY_INDEX = { Montag: 1, Dienstag: 2, Mittwoch: 3, Donnerstag: 4, Freitag: 5 };
+function getDateInfoForDay(dayName) {
+  const now = new Date();
+  const todayIdx = now.getDay();
+  const targetIdx = WEEKDAY_INDEX[dayName];
+  let diff = targetIdx - todayIdx;
+  if (diff < 0) diff += 7;
+  const target = new Date(now);
+  target.setDate(now.getDate() + diff);
+  target.setHours(12, 0, 0, 0);
+  const safe = getSafeDateStrings(target);
+  return {
+    date: target,
+    isoDate: toIsoDate(target),
+    dateStr: safe.dateStr,
+    longStr: safe.longStr
+  };
+}
+
+function renderSubjects() {
+  const day = daySelect.value;
+  const list = document.getElementById('subjectList');
+  const empty = document.getElementById('noSubjects');
+  list.innerHTML = '';
+  const subs = (schedule[day] || []).slice().sort((a, b) => (a.stunde || '').localeCompare(b.stunde || '', 'de', { numeric: true }));
+
+  if (subs.length === 0) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  subs.forEach(s => {
+    const row = document.createElement('label');
+    row.className = 'flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 cursor-pointer hover:border-brand/50';
+    row.innerHTML = `
+      <input type="checkbox" class="subj-check w-4 h-4 rounded" data-id="${s.id}" checked>
+      <span class="flex-1 min-w-0">
+        <span class="block text-sm font-medium text-ink truncate">${escapeHtml(s.fach)}${s.stunde ? ` <span class="text-mute font-normal">· ${escapeHtml(s.stunde)}. Std.</span>` : ''}</span>
+        <span class="block text-xs text-mute truncate">${escapeHtml(s.anrede)} ${escapeHtml(s.nachname)} · ${escapeHtml(s.email)}</span>
+      </span>
+    `;
+    list.appendChild(row);
+  });
+}
+daySelect.addEventListener('change', renderSubjects);
+renderSubjects();
+
+document.getElementById('selectAll').addEventListener('click', () => document.querySelectorAll('.subj-check').forEach(c => c.checked = true));
+document.getElementById('selectNone').addEventListener('click', () => document.querySelectorAll('.subj-check').forEach(c => c.checked = false));
+
+document.querySelectorAll('input[name="meldeArt"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const isVersp = document.querySelector('input[name="meldeArt"]:checked').value === 'verspaetung';
+    document.getElementById('verspaetungCard').classList.toggle('hidden', !isVersp);
+    document.getElementById('sendBtn').textContent = isVersp ? 'Verspätung melden' : 'Heute krankmelden';
+  });
+});
+
+document.getElementById('stuName').value = student.name || '';
+document.getElementById('stuKlasse').value = student.klasse || '';
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function anredeText(anrede) { return anrede === 'Frau' ? 'Sehr geehrte Frau' : 'Sehr geehrter Herr'; }
+
+function buildEmail(nameSchueler, klasse, dateStr, teacherGroups, opts = {}) {
+  const kind = opts.kind || 'krank';
+  const allFaecher = teacherGroups.flatMap(g => g.faecher);
+  const faecherText = allFaecher.length > 1
+    ? `die Fächer ${allFaecher.slice(0, -1).join(', ')} und ${allFaecher[allFaecher.length - 1]}`
+    : `das Fach ${allFaecher[0]}`;
+
+  const greeting = teacherGroups.length === 1
+    ? `${anredeText(teacherGroups[0].anrede)} ${teacherGroups[0].nachname}`
+    : 'Sehr geehrte Damen und Herren';
+
+  const nameKlasseText = `${nameSchueler || '[Name]'}, Klasse ${klasse || '[Klasse]'}`;
+
+  if (kind === 'verspaetung') {
+    const ankunftSatz = opts.ankunft ? ` Ich werde voraussichtlich gegen ${opts.ankunft} Uhr eintreffen.` : '';
+    const grundSatz = opts.grund ? ` Grund: ${opts.grund}.` : '';
+    const subject = `Verspätung ${nameKlasseText} – ${dateStr}`;
+    const body = `${greeting},\n\nich werde heute leider verspätet zum Unterricht kommen und kann daher nicht pünktlich am Unterricht in ${faecherText} teilnehmen.${ankunftSatz}${grundSatz}\n\nMit freundlichen Grüßen\n${nameKlasseText}`;
+    return { to: teacherGroups.map(g => g.email), subject, body };
+  }
+
+  const subject = `Krankmeldung ${nameKlasseText} – ${dateStr}`;
+  const body = `${greeting},\n\nich kann heute aus gesundheitlichen Gründen leider nicht am Unterricht in ${faecherText} teilnehmen. Ich bitte Sie, mein Fehlen zu entschuldigen.\n\nDie schriftliche Entschuldigung reiche ich schnellstmöglich nach.\n\nMit freundlichen Grüßen\n${nameKlasseText}`;
+  return { to: teacherGroups.map(g => g.email), subject, body };
+}
+
+document.getElementById('sendBtn').addEventListener('click', async () => {
+  const nameSchueler = document.getElementById('stuName').value.trim();
+  const klasse = document.getElementById('stuKlasse').value.trim();
+  student = { name: nameSchueler, klasse };
+  saveStudent(student);
+
+  const meldeArt = document.querySelector('input[name="meldeArt"]:checked').value;
+  const day = daySelect.value;
+  const dayDateInfo = getDateInfoForDay(day);
+  const checkedIds = [...document.querySelectorAll('.subj-check:checked')].map(c => c.dataset.id);
+  const chosen = (schedule[day] || []).filter(s => checkedIds.includes(s.id));
+
+  const resultsBox = document.getElementById('results');
+  resultsBox.innerHTML = '';
+  resultsBox.classList.add('hidden');
+
+  if (!nameSchueler || !klasse) { showNotice('Bitte Name und Klasse ausfüllen.', 'bad'); return; }
+  if (chosen.length === 0) { showNotice('Kein Fach ausgewählt.', 'bad'); return; }
+
+  let ankunft = '', grund = '';
+  if (meldeArt === 'verspaetung') {
+    ankunft = document.getElementById('ankunftszeit').value;
+    grund = document.getElementById('verspaetungGrund').value.trim();
+    if (!ankunft) { showNotice('Bitte Ankunftszeit angeben.', 'bad'); return; }
+  }
+
+  chosen.forEach(s => {
+    const key = `${dayDateInfo.isoDate}|${s.id}`;
+    statusLog[key] = meldeArt;
+  });
+  saveStatusLog(statusLog);
+
+  const groups = new Map();
+  chosen.forEach(s => {
+    const key = `${s.email.trim().toLowerCase()}|${s.anrede}|${s.nachname.trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, { anrede: s.anrede, nachname: s.nachname, email: s.email, faecher: [] });
+    groups.get(key).faecher.push(s.fach);
+  });
+
+  const teacherGroups = [...groups.values()];
+  const recipientMode = document.querySelector('input[name="recipientMode"]:checked').value;
+  const emailOpts = { kind: meldeArt, ankunft, grund };
+  const emails = recipientMode === 'combined'
+    ? [buildEmail(nameSchueler, klasse, dayDateInfo.dateStr, teacherGroups, emailOpts)]
+    : teacherGroups.map(g => buildEmail(nameSchueler, klasse, dayDateInfo.dateStr, [g], emailOpts));
+
+  if (meldeArt === 'krank') {
+    syncReminderForDate(dayDateInfo.isoDate, day);
+  }
+
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  resultsBox.classList.remove('hidden');
+  const heading = document.createElement('h3');
+  heading.className = 'text-sm font-semibold text-mute pt-1';
+  heading.textContent = `${emails.length} ${emails.length === 1 ? 'E-Mail' : 'E-Mails'} vorbereitet`;
+  resultsBox.appendChild(heading);
+
+  if (mode === 'mailto') {
+    emails.forEach(mail => resultsBox.appendChild(renderMailCard(mail, 'mailto')));
+  } else {
+    for (const mail of emails) {
+      const card = renderMailCard(mail, 'api');
+      resultsBox.appendChild(card);
+      sendViaApi(mail, card);
+    }
+  }
+});
+
+function showNotice(text, kind) {
+  const box = document.getElementById('results');
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="rounded-lg px-3 py-2.5 text-sm ${kind === 'bad' ? 'bg-warn-light text-warn' : 'bg-brand-light text-brand-dark'}">${escapeHtml(text)}</div>`;
+}
+
+function renderMailCard(mail, mode) {
+  const card = document.createElement('div');
+  card.className = 'bg-surface border border-line rounded-xl2 p-4';
+  const toList = mail.to.join(', ');
+  const mailtoHref = `mailto:${mail.to.map(encodeURIComponent).join(',')}?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`;
+  card.innerHTML = `
+    <div class="flex items-start justify-between gap-3 mb-2">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-ink truncate">${escapeHtml(toList)}</p>
+        <p class="text-xs text-mute truncate">${escapeHtml(mail.subject)}</p>
+      </div>
+      ${mode === 'mailto'
+        ? `<a href="${mailtoHref}" class="shrink-0 rounded-lg bg-brand text-white text-xs font-semibold px-3 py-2 hover:bg-brand-dark focus-ring">In Mail öffnen</a>`
+        : `<span class="api-status shrink-0 rounded-lg bg-canvas text-mute text-xs font-medium px-3 py-2">Wird gesendet …</span>`
+      }
+    </div>
+    <pre class="text-xs text-mute whitespace-pre-wrap font-sans bg-canvas rounded-lg p-3">${escapeHtml(mail.body)}</pre>
+  `;
+  return card;
+}
+
+async function sendViaApi(mail, card) {
+  const statusEl = card.querySelector('.api-status');
+  const endpoint = settings.apiEndpoint;
+  if (!endpoint) {
+    statusEl.textContent = 'Kein API-Endpunkt hinterlegt';
+    statusEl.classList.add('bg-warn-light', 'text-warn');
+    return;
+  }
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: mail.to, subject: mail.subject, text: mail.body })
+    });
+    if (response.ok) {
+      statusEl.textContent = 'Gesendet';
+      statusEl.classList.add('bg-brand-light', 'text-brand-dark');
+    } else {
+      statusEl.textContent = `Fehler (${response.status})`;
+      statusEl.classList.add('bg-warn-light', 'text-warn');
+    }
+  } catch {
+    statusEl.textContent = 'Backend nicht erreichbar';
+    statusEl.classList.add('bg-warn-light', 'text-warn');
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Erinnerungs-Synchronisation
+--------------------------------------------------------------------- */
+function syncReminderForDate(isoDate, dayName) {
+  const subjects = schedule[dayName] || [];
+  const sickItems = [];
+
+  subjects.forEach(s => {
+    const key = `${isoDate}|${s.id}`;
+    const st = statusLog[key];
+    if (st === 'krank' || st === 'passiv') {
+      sickItems.push({
+        id: s.id,
+        fach: s.fach,
+        stunde: s.stunde,
+        lehrer: `${s.anrede} ${s.nachname}`,
+        status: st
+      });
+    }
+  });
+
+  const existingIdx = reminders.findIndex(r => r.isoDate === isoDate);
+
+  if (sickItems.length === 0) {
+    if (existingIdx !== -1) {
+      reminders.splice(existingIdx, 1);
+      saveReminders(reminders);
+      renderReminders();
+    }
+    return;
+  }
+
+  const safe = getSafeDateStrings(isoDate);
+
+  const reminderObj = {
+    id: existingIdx !== -1 ? reminders[existingIdx].id : cryptoId(),
+    isoDate: isoDate,
+    dateStr: safe.dateStr,
+    longStr: safe.longStr,
+    name: student.name,
+    klasse: student.klasse,
+    items: sickItems
+  };
+
+  if (existingIdx !== -1) {
+    reminders[existingIdx] = reminderObj;
+  } else {
+    reminders.push(reminderObj);
+  }
+
+  saveReminders(reminders);
+  renderReminders();
+}
+
+/* ---------------------------------------------------------------------
+   Erinnerungen & Nachweis-Upload mit Friststatus
+--------------------------------------------------------------------- */
+function renderReminders() {
+  const box = document.getElementById('reminderBox');
+  box.innerHTML = '';
+  if (reminders.length === 0) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+
+  reminders.forEach(r => {
+    const safe = getSafeDateStrings(r.isoDate);
+    r.longStr = safe.longStr;
+    r.dateStr = safe.dateStr;
+
+    const dl = getDeadlineInfo(r.isoDate);
+    const items = (r.items || []).map(i => `<li>${escapeHtml(i.fach)}${i.stunde ? ` · ${escapeHtml(i.stunde)}. Std.` : ''}${i.status === 'passiv' ? ' (Sportbefreiung)' : ''}</li>`).join('');
+    
+    let borderClass = 'border-line';
+    if (dl.level === 'overdue' || dl.level === 'today' || dl.level === 'urgent') {
+      borderClass = 'border-bad/40 bg-bad/5';
+    } else if (dl.level === 'warning') {
+      borderClass = 'border-warn/40 bg-warn-light/60';
+    } else {
+      borderClass = 'border-line bg-surface';
+    }
+
+    const card = document.createElement('div');
+    card.id = `reminder-${r.id}`;
+    card.className = `flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-xl2 p-4 shadow-2xs transition-colors ${borderClass}`;
+    card.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <p class="text-sm font-bold text-ink">Schriftliche Entschuldigung abgeben</p>
+          <span class="text-[11px] px-2 py-0.5 rounded-full ${dl.badgeClass}">${dl.badgeText}</span>
+        </div>
+        <p class="text-xs text-mute mb-1.5">${escapeHtml(r.longStr)} · <span class="font-medium text-ink">Frist: bis ${escapeHtml(dl.deadlineDateStr)}</span></p>
+        <ul class="text-xs text-mute list-disc list-inside space-y-0.5">${items}</ul>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+        <button type="button" class="print-btn rounded-lg border border-line text-ink text-xs font-semibold px-3 py-2 bg-surface hover:bg-canvas focus-ring">
+          Drucken
+        </button>
+        <label class="upload-btn rounded-lg bg-brand text-white text-xs font-semibold px-3 py-2 hover:bg-brand-dark cursor-pointer focus-ring flex items-center gap-1.5">
+          <span>📷 Nachweis hochladen</span>
+          <input type="file" accept="image/*" capture="environment" class="hidden proof-input" data-id="${r.id}">
+        </label>
+      </div>
+    `;
+
+    card.querySelector('.print-btn').addEventListener('click', () => openDynamicVorlage(r));
+
+    const fileInput = card.querySelector('.proof-input');
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const cardEl = document.getElementById(`reminder-${r.id}`);
+      cardEl.innerHTML = `<div class="p-2 text-xs font-semibold text-brand text-center w-full">Bild wird komprimiert & gespeichert...</div>`;
+
+      try {
+        const compressedBase64 = await compressImage(file, 1200, 0.75);
+        await saveProofToDB({
+          id: r.id,
+          isoDate: r.isoDate,
+          dateStr: r.dateStr,
+          name: r.name,
+          klasse: r.klasse,
+          items: r.items,
+          image: compressedBase64,
+          timestamp: Date.now()
+        });
+
+        cardEl.innerHTML = `<div class="p-2 text-xs font-semibold text-brand-dark text-center w-full">✓ Nachweis gespeichert! Erinnerung erledigt.</div>`;
+        setTimeout(() => {
+          reminders = reminders.filter(x => x.id !== r.id);
+          saveReminders(reminders);
+          renderReminders();
+        }, 1500);
+      } catch (err) {
+        alert('Fehler beim Speichern des Nachweises.');
+        renderReminders();
+      }
+    });
+
+    box.appendChild(card);
+  });
+}
+renderReminders();
+
+/* ---------------------------------------------------------------------
+   Druckbare Vorlage
+--------------------------------------------------------------------- */
+function openDynamicVorlage(r) {
+  const win = window.open('', '_blank');
+  if (!win) { alert('Popup blockiert. Bitte Popups erlauben.'); return; }
+
+  const safe = getSafeDateStrings(r.isoDate || new Date());
+  const finalLongStr = safe.longStr;
+  const finalDateStr = safe.dateStr;
+  const dl = getDeadlineInfo(r.isoDate || toIsoDate(new Date()));
+
+  const isPassivOnly = r.isPassiv || (r.items && r.items.length > 0 && r.items.every(i => i.status === 'passiv'));
+
+  const title = isPassivOnly ? 'Sportbefreiung / Befreiung von der aktiven Teilnahme' : 'Entschuldigung';
+  const subTitle = isPassivOnly ? 'Bestätigung über die Anwesenheit ohne aktive Teilnahme' : 'Vorlage für Lehrkräfte';
+  const grundLabel = isPassivOnly ? 'Verletzung / gesundheitliche Beeinträchtigung' : 'Krankheit';
+
+  const statementText = isPassivOnly
+    ? 'Ich bitte zu entschuldigen, dass mein Sohn / meine Tochter am oben aufgeführten Unterricht zwar anwesend war, jedoch aus gesundheitlichen Gründen nicht aktiv am praktischen Sportunterricht / Unterricht teilnehmen konnte.'
+    : 'Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben genannten Unterricht aus gesundheitlichen Gründen zu entschuldigen.';
+
+  const validItems = (r.items || []).filter(i => i.status !== 'entfaellt');
+
+  const rows = validItems.map(i => `
+    <tr>
+      <td style="padding: 4px 6px; border-bottom: 1px solid #E2E8F0; font-weight: 700; color: #146B69; width: 60px;">${escapeHtml(i.stunde ? i.stunde + '. Std.' : '–')}</td>
+      <td style="padding: 4px 6px; border-bottom: 1px solid #E2E8F0; font-weight: 600;">${escapeHtml(i.fach)}</td>
+      <td style="padding: 4px 6px; border-bottom: 1px solid #E2E8F0; color: #64748B; text-align: right;">${escapeHtml(i.lehrer || '')}</td>
+    </tr>
+  `).join('');
+
+  win.document.write(`<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>${title} – ${escapeHtml(finalDateStr)}</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1E293B; background: #F1F5F9; display: flex; flex-direction: column; align-items: center; padding: 30px 10px; }
+  .ticket { width: 140mm; height: 100mm; background: #FFF; border: 1px dashed #94A3B8; position: relative; padding: 8mm 10mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cut-guide { position: absolute; top: -8px; right: 10px; font-size: 9px; background: #FFF; padding: 0 4px; color: #64748B; }
+  .header { display: flex; justify-content: space-between; border-bottom: 1.5px solid #146B69; padding-bottom: 4px; }
+  .header h1 { font-size: 11pt; font-weight: 800; color: #146B69; line-height: 1.2; }
+  .meta { text-align: right; font-size: 7.5pt; shrink-0; }
+  .student-bar { display: flex; background: #F8FAFC; border-radius: 4px; padding: 4px 8px; margin: 4px 0; font-size: 8pt; gap: 14px; }
+  .student-bar span { font-weight: 600; color: #0F172A; }
+  table { width: 100%; border-collapse: collapse; font-size: 8pt; margin: 2px 0; }
+  th { text-align: left; font-size: 6.5pt; text-transform: uppercase; color: #64748B; padding: 2px 6px; border-bottom: 1px solid #CBD5E1; }
+  .statement { font-size: 7.5pt; color: #334155; margin-bottom: 3px; line-height: 1.35; }
+  .signatures { display: grid; grid-template-columns: 1fr 1.3fr; gap: 20px; margin-top: 3px; }
+  .sign-line { border-top: 1px solid #475569; padding-top: 3px; font-size: 6.5pt; color: #64748B; text-align: center; }
+  .actions { margin-top: 20px; }
+  .actions button { background: #146B69; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+  @media print { body { background: white; padding: 0; } .actions { display: none; } }
+</style>
+</head>
+<body>
+  <div class="ticket">
+    <div class="cut-guide">✂ Hier ausschneiden (14 × 10 cm)</div>
+    <div class="header">
+      <div style="max-width: 75%;">
+        <h1>${title}</h1>
+        <p style="font-size:7pt;color:#64748B;">${subTitle}</p>
+      </div>
+      <div class="meta">
+        <div>Datum: <strong>${escapeHtml(finalLongStr)}</strong></div>
+        <div style="color:#B4432F;font-weight:700;">Abgabefrist: bis ${escapeHtml(dl.deadlineDateStr)}</div>
+      </div>
+    </div>
+    <div class="student-bar">
+      <div>Name: <span>${escapeHtml(r.name || student.name)}</span></div>
+      <div>Klasse: <span>${escapeHtml(r.klasse || student.klasse)}</span></div>
+      <div>Grund: <span>${grundLabel}</span></div>
+    </div>
+    <div style="flex-grow:1; overflow:hidden;">
+      <table><thead><tr><th>Std.</th><th>Fach</th><th style="text-align:right;">Fachlehrer/in</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <p class="statement">${statementText}</p>
+    <div class="signatures"><div class="sign-line">Ort, Datum</div><div class="sign-line">Unterschrift Erziehungsberechtigte/r</div></div>
+  </div>
+  <div class="actions"><button onclick="window.print()">Drucken</button></div>
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+}
+
+/* ---------------------------------------------------------------------
+   TAB 2: Untis-Raster
+--------------------------------------------------------------------- */
+let currentWeekMonday = getMonday(new Date());
+
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const m = new Date(date.setDate(diff));
+  m.setHours(12, 0, 0, 0);
+  return m;
+}
+
+document.getElementById('prevWeekBtn').addEventListener('click', () => {
+  currentWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+  renderUntisWeek();
+});
+document.getElementById('nextWeekBtn').addEventListener('click', () => {
+  currentWeekMonday.setDate(currentWeekMonday.getDate() + 7);
+  renderUntisWeek();
+});
+document.getElementById('currentWeekBtn').addEventListener('click', () => {
+  currentWeekMonday = getMonday(new Date());
+  renderUntisWeek();
+});
+
+function renderUntisWeek() {
+  const grid = document.getElementById('untisGrid');
+  grid.innerHTML = '';
+
+  const friday = new Date(currentWeekMonday);
+  friday.setDate(friday.getDate() + 4);
+
+  document.getElementById('weekRangeLabel').textContent = 
+    `${currentWeekMonday.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ${friday.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+
+  let totalKrank = 0, totalVersp = 0, totalPassiv = 0, totalEntfaellt = 0;
+
+  WEEKDAYS.forEach((dayName, idx) => {
+    const dayDate = new Date(currentWeekMonday);
+    dayDate.setDate(dayDate.getDate() + idx);
+    dayDate.setHours(12, 0, 0, 0);
+    const isoDate = toIsoDate(dayDate);
+    const dateFormatted = dayDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+
+    const col = document.createElement('div');
+    col.className = 'flex flex-col min-h-[360px] bg-canvas/40';
+
+    const isToday = isoDate === toIsoDate(new Date());
+    
+    const headerEl = document.createElement('div');
+    headerEl.className = `p-2.5 border-b border-line text-center cursor-pointer select-none transition-colors hover:bg-brand/10 ${isToday ? 'bg-brand-light text-brand-dark font-bold' : 'bg-canvas text-ink font-semibold'} text-xs`;
+    headerEl.title = 'Klicken, um den gesamten Tag zu bearbeiten oder zu entschuldigen';
+    headerEl.innerHTML = `
+      <div class="flex items-center justify-center gap-1">
+        <span>${dayName.slice(0, 2)}</span>
+        <span class="text-[10px] text-brand">✎</span>
+      </div>
+      <div class="text-[11px] font-normal text-mute">${dateFormatted}</div>
+    `;
+    headerEl.addEventListener('click', () => openDayModal(isoDate, dayName));
+    col.appendChild(headerEl);
+
+    const itemsCol = document.createElement('div');
+    itemsCol.className = 'p-2 space-y-2 flex-1 items-column';
+
+    const subjects = (schedule[dayName] || []).slice().sort((a, b) => (a.stunde || '').localeCompare(b.stunde || '', 'de', { numeric: true }));
+
+    if (subjects.length === 0) {
+      itemsCol.innerHTML = `<div class="h-full flex items-center justify-center text-[11px] text-mute italic">Kein Unterricht</div>`;
+    } else {
+      subjects.forEach(s => {
+        const key = `${isoDate}|${s.id}`;
+        const status = statusLog[key] || 'anwesend';
+
+        if (status === 'krank') totalKrank++;
+        if (status === 'verspaetung') totalVersp++;
+        if (status === 'passiv') totalPassiv++;
+        if (status === 'entfaellt') totalEntfaellt++;
+
+        const card = document.createElement('div');
+        let cardStyle = 'border-line bg-surface hover:border-brand/40';
+        let statusBadge = '';
+        let fachClass = 'font-bold text-ink truncate';
+
+        if (status === 'krank') {
+          cardStyle = 'border-bad/40 bg-bad/5 border-l-4 border-l-bad';
+          statusBadge = '<span class="text-[9px] font-bold text-bad uppercase">Gefehlt</span>';
+        } else if (status === 'verspaetung') {
+          cardStyle = 'border-warn/40 bg-warn/10 border-l-4 border-l-warn';
+          statusBadge = '<span class="text-[9px] font-bold text-warn uppercase">Verspätet</span>';
+        } else if (status === 'passiv') {
+          cardStyle = 'border-sky-300 bg-sky-50 border-l-4 border-l-sky-500';
+          statusBadge = '<span class="text-[9px] font-bold text-sky-800 uppercase">Sportbefreiung</span>';
+        } else if (status === 'entfaellt') {
+          cardStyle = 'border-dashed border-mute/40 bg-slate-100 opacity-75';
+          fachClass = 'font-bold text-mute line-through truncate';
+          statusBadge = '<span class="text-[9px] font-semibold text-mute uppercase">Entfällt</span>';
+        }
+
+        card.className = `p-2.5 rounded-lg border text-xs cursor-pointer shadow-2xs transition-all ${cardStyle}`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="${fachClass}">${escapeHtml(s.fach)}</span>
+            <span class="text-[10px] text-mute font-mono shrink-0">${escapeHtml(s.stunde ? s.stunde + '. Std.' : '')}</span>
+          </div>
+          <div class="text-[11px] text-mute truncate">${escapeHtml(s.nachname)}</div>
+          ${statusBadge ? `<div class="mt-1 pt-1 border-t border-black/5 flex justify-end">${statusBadge}</div>` : ''}
+        `;
+
+        card.addEventListener('click', () => openCellModal(isoDate, dayName, s, status));
+        itemsCol.appendChild(card);
+      });
+    }
+
+    col.appendChild(itemsCol);
+    grid.appendChild(col);
+  });
+
+  document.getElementById('historyStats').textContent = 
+    `In dieser Woche: ${totalKrank} Std. krank, ${totalVersp} Std. verspätet, ${totalPassiv} Std. Sportbefreiung, ${totalEntfaellt} Std. entfallen.`;
+}
+
+/* Modal: Einzelne Stunde */
+let activeModalData = null;
+function openCellModal(isoDate, dayName, subj, currentStatus) {
+  const safe = getSafeDateStrings(isoDate);
+  activeModalData = { 
+    isoDate, 
+    dayName, 
+    dateStr: safe.dateStr,
+    longStr: safe.longStr,
+    subj
+  };
+
+  document.getElementById('modalTitle').textContent = `${subj.fach} (${subj.stunde ? subj.stunde + '. Std.' : ''})`;
+  document.getElementById('modalSub').textContent = `${safe.longStr} · ${subj.anrede} ${subj.nachname}`;
+  
+  const radio = document.querySelector(`input[name="modalStatus"][value="${currentStatus}"]`) || document.querySelector(`input[name="modalStatus"][value="anwesend"]`);
+  radio.checked = true;
+
+  document.getElementById('cellModal').classList.remove('hidden');
+}
+
+document.getElementById('modalCloseBtn').addEventListener('click', () => {
+  document.getElementById('cellModal').classList.add('hidden');
+});
+
+document.getElementById('modalSaveBtn').addEventListener('click', () => {
+  if (!activeModalData) return;
+  const newStatus = document.querySelector('input[name="modalStatus"]:checked').value;
+  const key = `${activeModalData.isoDate}|${activeModalData.subj.id}`;
+
+  if (newStatus === 'anwesend') delete statusLog[key];
+  else statusLog[key] = newStatus;
+
+  saveStatusLog(statusLog);
+  syncReminderForDate(activeModalData.isoDate, activeModalData.dayName);
+
+  document.getElementById('cellModal').classList.add('hidden');
+  renderUntisWeek();
+});
+
+document.getElementById('modalPrintBtn').addEventListener('click', () => {
+  if (!activeModalData) return;
+  const st = document.querySelector('input[name="modalStatus"]:checked').value;
+  if (st === 'entfaellt') {
+    alert('Für eine entfallene Stunde muss keine Entschuldigung gedruckt werden.');
+    return;
+  }
+
+  openDynamicVorlage({
+    isoDate: activeModalData.isoDate,
+    dateStr: activeModalData.dateStr,
+    longStr: activeModalData.longStr,
+    isPassiv: st === 'passiv',
+    items: [{
+      fach: activeModalData.subj.fach,
+      stunde: activeModalData.subj.stunde,
+      lehrer: `${activeModalData.subj.anrede} ${activeModalData.subj.nachname}`,
+      status: st
+    }]
+  });
+});
+
+/* Modal: Ganzen Tag bearbeiten */
+let activeDayData = null;
+function openDayModal(isoDate, dayName) {
+  const safe = getSafeDateStrings(isoDate);
+  activeDayData = { 
+    isoDate, 
+    dayName, 
+    dateStr: safe.dateStr, 
+    longStr: safe.longStr 
+  };
+  
+  document.getElementById('dayModalTitle').textContent = safe.longStr;
+  
+  const subjects = (schedule[dayName] || []).slice().sort((a, b) => (a.stunde || '').localeCompare(b.stunde || '', 'de', { numeric: true }));
+  const listEl = document.getElementById('dayModalSubjectList');
+  listEl.innerHTML = '';
+
+  if (subjects.length === 0) {
+    listEl.innerHTML = `<p class="text-xs text-mute py-2">Kein Unterricht an diesem Tag.</p>`;
+  } else {
+    subjects.forEach(s => {
+      const key = `${isoDate}|${s.id}`;
+      const curStatus = statusLog[key] || 'anwesend';
+
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between gap-2 p-2 rounded-lg border border-line bg-surface text-xs';
+      row.innerHTML = `
+        <div class="min-w-0">
+          <span class="font-bold text-ink">${escapeHtml(s.fach)}</span>
+          <span class="text-mute font-mono">(${escapeHtml(s.stunde ? s.stunde + '. Std.' : '')})</span>
+        </div>
+        <select class="day-subj-select rounded border border-line px-1.5 py-1 text-xs focus-ring" data-subjid="${s.id}">
+          <option value="anwesend" ${curStatus === 'anwesend' ? 'selected' : ''}>Anwesend</option>
+          <option value="krank" ${curStatus === 'krank' ? 'selected' : ''}>Krank</option>
+          <option value="verspaetung" ${curStatus === 'verspaetung' ? 'selected' : ''}>Verspätet</option>
+          <option value="passiv" ${curStatus === 'passiv' ? 'selected' : ''}>Sportbefreiung</option>
+          <option value="entfaellt" ${curStatus === 'entfaellt' ? 'selected' : ''}>Entfällt</option>
+        </select>
+      `;
+      listEl.appendChild(row);
+    });
+  }
+
+  document.getElementById('dayModal').classList.remove('hidden');
+}
+
+document.querySelectorAll('.day-set-status-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetStatus = btn.dataset.status;
+    document.querySelectorAll('.day-subj-select').forEach(sel => sel.value = targetStatus);
+  });
+});
+
+document.getElementById('dayModalCloseBtn').addEventListener('click', () => {
+  document.getElementById('dayModal').classList.add('hidden');
+});
+
+document.getElementById('dayModalSaveBtn').addEventListener('click', () => {
+  if (!activeDayData) return;
+  document.querySelectorAll('.day-subj-select').forEach(sel => {
+    const subjId = sel.dataset.subjid;
+    const val = sel.value;
+    const key = `${activeDayData.isoDate}|${subjId}`;
+    if (val === 'anwesend') delete statusLog[key];
+    else statusLog[key] = val;
+  });
+  saveStatusLog(statusLog);
+
+  syncReminderForDate(activeDayData.isoDate, activeDayData.dayName);
+
+  document.getElementById('dayModal').classList.add('hidden');
+  renderUntisWeek();
+});
+
+document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
+  if (!activeDayData) return;
+  const dayName = activeDayData.dayName;
+  const subjects = schedule[dayName] || [];
+  const itemsToPrint = [];
+
+  document.querySelectorAll('.day-subj-select').forEach(sel => {
+    const sId = sel.dataset.subjid;
+    const val = sel.value;
+    if (val === 'krank' || val === 'passiv' || val === 'verspaetung') {
+      const sObj = subjects.find(x => x.id === sId);
+      if (sObj) {
+        itemsToPrint.push({
+          fach: sObj.fach,
+          stunde: sObj.stunde,
+          lehrer: `${sObj.anrede} ${sObj.nachname}`,
+          status: val
+        });
+      }
+    }
+  });
+
+  if (itemsToPrint.length === 0) {
+    alert('Für diesen Tag sind keine zu entschuldigenden Fehlzeiten vorhanden (oder alle Stunden entfallen).');
+    return;
+  }
+
+  openDynamicVorlage({
+    isoDate: activeDayData.isoDate,
+    dateStr: activeDayData.dateStr,
+    longStr: activeDayData.longStr,
+    items: itemsToPrint
+  });
+});
+
+/* ---------------------------------------------------------------------
+   Nachweise-Ordner Modal
+--------------------------------------------------------------------- */
+const archiveModal = document.getElementById('archiveModal');
+document.getElementById('openArchiveBtn').addEventListener('click', async () => {
+  archiveModal.classList.remove('hidden');
+  await renderArchive();
+});
+document.getElementById('closeArchiveBtn').addEventListener('click', () => {
+  archiveModal.classList.add('hidden');
+});
+
+async function renderArchive() {
+  const container = document.getElementById('archiveContent');
+  container.innerHTML = `<p class="text-xs text-mute py-4 text-center">Lade Belege...</p>`;
+  const proofs = await getAllProofsFromDB();
+
+  if (proofs.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-mute">
+        <p class="text-sm">Noch keine Nachweise hochgeladen.</p>
+        <p class="text-xs mt-1">Sobald du unterschriebene Entschuldigungen fotografierst, werden sie hier sicher abgelegt.</p>
+      </div>
+    `;
+    return;
+  }
+
+  proofs.sort((a, b) => b.timestamp - a.timestamp);
+  container.innerHTML = '';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+
+  proofs.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'border border-line rounded-xl p-3 bg-surface shadow-2xs space-y-2';
+    const itemsList = (p.items || []).map(i => `${escapeHtml(i.fach)}${i.stunde ? ` (${i.stunde}.)` : ''}`).join(', ');
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="text-xs font-bold text-ink">${escapeHtml(p.dateStr)}</p>
+          <p class="text-[11px] text-mute truncate">${escapeHtml(itemsList)}</p>
+        </div>
+        <button class="del-proof text-mute hover:text-bad text-xs p-1" title="Nachweis löschen" data-id="${p.id}">🗑</button>
+      </div>
+      <div class="h-36 bg-canvas rounded-lg overflow-hidden border border-line cursor-pointer flex items-center justify-center img-preview">
+        <img src="${p.image}" alt="Nachweis" class="w-full h-full object-cover">
+      </div>
+    `;
+
+    card.querySelector('.img-preview').addEventListener('click', () => {
+      document.getElementById('imageViewerImg').src = p.image;
+      document.getElementById('imageViewerModal').classList.remove('hidden');
+    });
+
+    card.querySelector('.del-proof').addEventListener('click', async () => {
+      if (!confirm('Diesen Bildnachweis wirklich unwiderruflich löschen?')) return;
+      await deleteProofFromDB(p.id);
+      renderArchive();
+    });
+
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+}
+
+/* ---------------------------------------------------------------------
+   TAB 3: Einstellungen & Editor
+--------------------------------------------------------------------- */
+const scheduleEditor = document.getElementById('scheduleEditor');
+const openDays = new Set([today.weekday || 'Montag']);
+
+function renderScheduleEditor() {
+  scheduleEditor.innerHTML = '';
+  WEEKDAYS.forEach(day => {
+    const block = document.createElement('details');
+    block.className = 'border border-line rounded-lg overflow-hidden';
+    block.open = openDays.has(day);
+    block.addEventListener('toggle', () => {
+      if (block.open) openDays.add(day); else openDays.delete(day);
+    });
+    const count = (schedule[day] || []).length;
+    block.innerHTML = `
+      <summary class="cursor-pointer select-none px-3 py-2.5 bg-canvas text-sm font-medium text-ink flex items-center justify-between">
+        <span>${day}</span>
+        <span class="text-xs text-mute">${count} ${count === 1 ? 'Fach' : 'Fächer'}</span>
+      </summary>
+      <div class="p-3 space-y-2" data-day-rows="${day}"></div>
+      <div class="px-3 pb-3">
+        <button type="button" data-add-day="${day}" class="text-xs font-medium text-brand hover:underline focus-ring">+ Fach hinzufügen</button>
+      </div>
+    `;
+    scheduleEditor.appendChild(block);
+    renderDayRows(day);
+  });
+
+  scheduleEditor.querySelectorAll('[data-add-day]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const day = btn.dataset.addDay;
+      openDays.add(day);
+      schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
+      renderScheduleEditor();
+    });
+  });
+}
+
+function renderDayRows(day) {
+  const container = scheduleEditor.querySelector(`[data-day-rows="${day}"]`);
+  const rows = schedule[day] || [];
+  if (rows.length === 0) {
+    container.innerHTML = `<p class="text-xs text-mute py-1">Noch keine Fächer hinterlegt.</p>`;
+    return;
+  }
+  container.innerHTML = '';
+  rows.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-12 gap-2 items-center';
+    row.innerHTML = `
+      <input value="${escapeAttr(s.fach)}" data-field="fach" placeholder="Fach" class="col-span-3 rounded-lg border border-line px-2 py-1.5 text-xs focus-ring">
+      <select data-field="anrede" class="col-span-2 rounded-lg border border-line px-1 py-1.5 text-xs focus-ring">
+        <option value="Frau" ${s.anrede === 'Frau' ? 'selected' : ''}>Frau</option>
+        <option value="Herr" ${s.anrede === 'Herr' ? 'selected' : ''}>Herr</option>
+      </select>
+      <input value="${escapeAttr(s.nachname)}" data-field="nachname" placeholder="Nachname" class="col-span-2 rounded-lg border border-line px-2 py-1.5 text-xs focus-ring">
+      <input value="${escapeAttr(s.email)}" data-field="email" placeholder="E-Mail" type="email" class="col-span-3 rounded-lg border border-line px-2 py-1.5 text-xs focus-ring">
+      <input value="${escapeAttr(s.stunde)}" data-field="stunde" placeholder="Std." class="col-span-1 rounded-lg border border-line px-2 py-1.5 text-xs focus-ring">
+      <button type="button" data-remove="${s.id}" class="col-span-1 text-mute hover:text-bad text-sm focus-ring" title="Entfernen">✕</button>
+    `;
+    row.querySelectorAll('[data-field]').forEach(input => {
+      input.addEventListener('input', () => { s[input.dataset.field] = input.value; });
+    });
+    row.querySelector('[data-remove]').addEventListener('click', () => {
+      schedule[day] = schedule[day].filter(x => x.id !== s.id);
+      renderScheduleEditor();
+    });
+    container.appendChild(row);
+  });
+}
+function escapeAttr(str) { return escapeHtml(str || ''); }
+
+renderScheduleEditor();
+document.getElementById('apiEndpoint').value = settings.apiEndpoint || '';
+
+document.getElementById('saveSettings').addEventListener('click', () => {
+  saveSchedule(schedule);
+  settings.apiEndpoint = document.getElementById('apiEndpoint').value.trim();
+  saveSettings(settings);
+  renderSubjects();
+  renderUntisWeek();
+  const note = document.getElementById('saveNote');
+  note.classList.remove('hidden');
+  setTimeout(() => note.classList.add('hidden'), 2000);
+});
+
+document.getElementById('resetSettings').addEventListener('click', () => {
+  if (!confirm('Stundenplan wirklich auf die Standarddaten zurücksetzen?')) return;
+  schedule = structuredClone(DEFAULT_SCHEDULE);
+  saveSchedule(schedule);
+  renderScheduleEditor();
+  renderSubjects();
+  renderUntisWeek();
+});
+</script>
+</body>
+</html>
