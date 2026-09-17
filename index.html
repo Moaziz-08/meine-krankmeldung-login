@@ -936,6 +936,7 @@ stuKlasseInp.addEventListener('input', () => {
   saveStudent(student);
 });
 
+/* Präzise Zuordnung von Grund & Sportbefreiung in Erinnerungen */
 function syncReminderForDate(iso, dayName, explicitReason = '', explicitAnkunft = '') {
   const subs = schedule[dayName] || [];
   const sick = [];
@@ -962,8 +963,15 @@ function syncReminderForDate(iso, dayName, explicitReason = '', explicitAnkunft 
     finalReason = reminders[idx].reason;
   }
   if (!finalReason) {
+    const hasPassivOnly = sick.length > 0 && sick.every(x => x.status === 'passiv');
     const hasSick = sick.some(x => x.status === 'krank');
-    finalReason = hasSick ? 'Krankheit' : 'Verspätung / triftiger Grund';
+    if (hasPassivOnly) {
+      finalReason = 'Sportbefreiung (anwesend, nicht aktiv)';
+    } else if (hasSick) {
+      finalReason = 'Krankheit';
+    } else {
+      finalReason = 'Verspätung / triftiger Grund';
+    }
   }
 
   let finalAnkunft = explicitAnkunft || (idx !== -1 ? reminders[idx].ankunft : '');
@@ -1027,7 +1035,7 @@ function renderReminders() {
         dateStr: r.dateStr, 
         name: r.name, 
         klasse: r.klasse, 
-        reason: r.reason || 'Krankheit / triftiger Grund',
+        reason: r.reason || 'Krankheit / gesundheitliche Gründe',
         ankunft: r.ankunft || '',
         items: r.items, 
         image: base64, 
@@ -1049,14 +1057,18 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Druck-Vorschau mit den 3 professionellen Layouts */
+/* Druck-Vorschau mit Sportbefreiungs-Erkennung & Text-Anpassung */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
 
   const safe = getSafeDateStrings(r.isoDate || new Date());
   const dl = getDeadlineInfo(r.isoDate);
-  const rows = (r.items || []).filter(i => i.status !== 'entfaellt').map(i => `
+  const validItems = (r.items || []).filter(i => i.status !== 'entfaellt');
+  
+  const isPassiv = (r.items && r.items.length > 0 && r.items.every(i => i.status === 'passiv')) || (r.reason && r.reason.toLowerCase().includes('sportbefreiung'));
+
+  const rows = validItems.map(i => `
     <tr>
       <td class="stunde-col">${escapeHtml(i.stunde||'–')}. Std.</td>
       <td class="fach-col">${escapeHtml(i.fach)}</td>
@@ -1064,16 +1076,22 @@ function openPrint(r) {
     </tr>
   `).join('');
 
-  const displayReason = r.reason 
-    ? `${r.reason}${r.ankunft ? ` (Voraussichtliche Ankunft: ${r.ankunft} Uhr)` : ''}`
-    : 'Krankheit / gesundheitliche Gründe';
+  let displayTitle = isPassiv ? 'Sportbefreiung' : 'Entschuldigung';
+  let displaySubtitle = isPassiv ? 'Befreiung von der aktiven sportlichen Teilnahme' : 'Vorlage für Lehrkräfte';
+  
+  let displayReason = r.reason || (isPassiv ? 'Gesundheitliche Gründe / Sportunfähigkeit (passiv anwesend)' : 'Krankheit / gesundheitliche Gründe');
+  if (r.ankunft) displayReason += ` (Ankunft: ${r.ankunft} Uhr)`;
+
+  let statementText = isPassiv
+    ? 'Ich bitte zu entschuldigen, dass mein Sohn / meine Tochter am oben aufgeführten Unterricht zwar anwesend war, jedoch aus gesundheitlichen Gründen nicht aktiv am praktischen Sportunterricht teilnehmen konnte.'
+    : 'Ich bitte, das Fehlen / die Verspätung meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus dem genannten triftigen Grund zu entschuldigen.';
 
   const docContent = `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entschuldigung drucken</title>
+  <title>${escapeHtml(displayTitle)} drucken</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #1E293B; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px 10px; }
@@ -1226,6 +1244,9 @@ function openPrint(r) {
   const dateLongSafe = escapeHtml(safe.longStr);
   const deadlineStrSafe = escapeHtml(dl.dlStr);
   const reasonSafe = escapeHtml(displayReason);
+  const titleSafe = escapeHtml(displayTitle);
+  const subTitleSafe = escapeHtml(displaySubtitle);
+  const statementSafe = escapeHtml(statementText);
 
   win.setDesign = function(designClass, btn) {
     const box = win.document.getElementById('ticketBox');
@@ -1241,8 +1262,8 @@ function openPrint(r) {
         <div>
           <div class="header">
             <div>
-              <div class="header-title">Schriftliche Entschuldigung</div>
-              <div style="font-size:6.5pt; color:#64748B;">Vorlage zur Vorlage bei den Fachlehrkräften</div>
+              <div class="header-title">${titleSafe}</div>
+              <div style="font-size:6.5pt; color:#64748B;">${subTitleSafe}</div>
             </div>
             <div style="text-align:right; font-size:7pt;">
               Datum: <strong>${dateLongSafe}</strong><br>
@@ -1274,7 +1295,7 @@ function openPrint(r) {
 
         <div>
           <p style="font-size:6.8pt; line-height:1.3; color:#334155; margin-bottom:4px;">
-            Ich bitte, das Fehlen bzw. die Verspätung meines Sohnes / meiner Tochter im oben genannten Unterricht aus dem genannten Grund zu entschuldigen.
+            ${statementSafe}
           </p>
           <div class="sign-grid">
             <div class="sign-line">Ort, Datum</div>
@@ -1287,8 +1308,8 @@ function openPrint(r) {
         <div>
           <div class="head">
             <div>
-              <div class="title">Entschuldigungsschreiben</div>
-              <div style="font-size:6.5pt; color:#64748B;">Schulische Fehlzeiten-Bestätigung</div>
+              <div class="title">${titleSafe}</div>
+              <div style="font-size:6.5pt; color:#64748B;">${subTitleSafe}</div>
             </div>
             <div style="text-align:right; font-size:6.8pt; color:#64748B;">
               Gültig bis: <strong style="color:#B4432F;">${deadlineStrSafe}</strong><br>
@@ -1299,7 +1320,7 @@ function openPrint(r) {
           <div class="meta-badges">
             <span class="badge">👤 ${studentNameSafe}</span>
             <span class="badge">🏫 Klasse ${studentKlasseSafe}</span>
-            <span class="reason-badge">⚠️ ${reasonSafe}</span>
+            <span class="reason-badge">ℹ️ ${reasonSafe}</span>
           </div>
 
           <div style="max-height:46mm; overflow:hidden;">
@@ -1318,7 +1339,7 @@ function openPrint(r) {
 
         <div>
           <p style="font-size:6.8pt; color:#475569; line-height:1.3; margin-bottom:5px;">
-            Hiermit bestätige ich die Kenntnisnahme und Richtigkeit der oben aufgeführten Fehlzeiten meines Kindes.
+            ${statementSafe}
           </p>
           <div class="sign-grid">
             <div class="sign-line">Ort, Datum</div>
@@ -1334,7 +1355,7 @@ function openPrint(r) {
             <span>${dateLongSafe}</span>
           </div>
 
-          <div class="letter-heading">Entschuldigung</div>
+          <div class="letter-heading">${titleSafe}</div>
 
           <div class="details-box">
             <strong>Schüler/in:</strong> ${studentNameSafe} (Klasse ${studentKlasseSafe})<br>
@@ -1355,7 +1376,7 @@ function openPrint(r) {
 
         <div>
           <p class="letter-statement" style="margin-bottom:6px;">
-            Sehr geehrte Damen und Herren, ich bitte das Versäumnis meines Kindes im oben aufgeführten Unterricht zu entschuldigen.
+            Sehr geehrte Damen und Herren, ${statementSafe}
           </p>
           <div class="sign-grid">
             <div class="sign-line">Ort, Datum</div>
@@ -1381,13 +1402,12 @@ document.getElementById('currentWeekBtn').addEventListener('click', () => {
   renderUntisWeek(); 
 });
 
-/* Datumswahl Modal (Schnellauswahl für Monat & Tag) */
+/* Datumswahl Modal */
 const datePickerModal = document.getElementById('datePickerModal');
 const pickerMonthSelect = document.getElementById('pickerMonthSelect');
 const pickerYearSelect = document.getElementById('pickerYearSelect');
 const pickerDaysGrid = document.getElementById('pickerDaysGrid');
 
-// Monate & Jahre befüllen
 MONTH_NAMES.forEach((m, idx) => {
   const opt = document.createElement('option');
   opt.value = idx;
@@ -1423,19 +1443,17 @@ function renderDatePickerCalendar() {
   const selMonth = parseInt(pickerMonthSelect.value, 10);
 
   const firstDay = new Date(selYear, selMonth, 1);
-  let startingDayOfWeek = firstDay.getDay() - 1; // Mo = 0
+  let startingDayOfWeek = firstDay.getDay() - 1;
   if (startingDayOfWeek === -1) startingDayOfWeek = 6;
 
   const totalDays = new Date(selYear, selMonth + 1, 0).getDate();
 
-  // Leere Vorlauf-Tage
   for (let i = 0; i < startingDayOfWeek; i++) {
     const emptyEl = document.createElement('div');
     emptyEl.className = 'picker-day-btn empty';
     pickerDaysGrid.appendChild(emptyEl);
   }
 
-  // Tage des Monats
   for (let day = 1; day <= totalDays; day++) {
     const dayBtn = document.createElement('button');
     dayBtn.type = 'button';
@@ -1498,6 +1516,9 @@ function renderUntisWeek() {
         totalVersp++;
         if (st === 'verspaetung' && hasProof) totalDone++;
       }
+      if (st === 'passiv' && hasProof) {
+        totalDone++;
+      }
 
       const item = document.createElement('div');
       let statusClass = '';
@@ -1522,6 +1543,14 @@ function renderUntisWeek() {
       } else if (st === 'verspaetung_ohne') {
         statusClass = ' status-versp-info';
         badge = '<span style="color:var(--versp-info); font-size:9px; font-weight:bold; display:block; text-align:right;">Verspätet (Info)</span>';
+      } else if (st === 'passiv') {
+        if (hasProof) {
+          statusClass = ' status-done';
+          badge = '<span style="color:var(--ok); font-size:9px; font-weight:bold; display:block; text-align:right;">✓ Entschuldigt</span>';
+        } else {
+          statusClass = ' status-passiv';
+          badge = '<span style="color:#0369a1; font-size:9px; font-weight:bold; display:block; text-align:right;">Sportbefreiung</span>';
+        }
       } else if (st !== 'anwesend') {
         statusClass = ` status-${st}`;
       }
@@ -1571,9 +1600,14 @@ document.getElementById('modalPrintBtn').addEventListener('click', () => {
   if (!activeCell) return;
   const selInput = document.querySelector('input[name="modalStatus"]:checked');
   const st = selInput ? selInput.value : 'anwesend';
+
+  let printReason = 'Krankheit';
+  if (st === 'passiv') printReason = 'Sportbefreiung (anwesend, nicht aktiv)';
+  else if (st.includes('verspaetung')) printReason = 'Verspätung / triftiger Grund';
+
   openPrint({ 
     isoDate: activeCell.iso, 
-    reason: st === 'krank' ? 'Krankheit' : 'Verspätung / triftiger Grund',
+    reason: printReason,
     items: [{ fach: activeCell.s.fach, stunde: activeCell.s.stunde, lehrer: `${activeCell.s.anrede} ${activeCell.s.nachname}`, status: st }] 
   });
 });
@@ -1631,7 +1665,11 @@ document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
     }
   });
   if (items.length === 0) return alert("Keine Fehlzeiten an diesem Tag.");
-  openPrint({ isoDate: activeDay.iso, reason: 'Unterrichtsversäumnis aus triftigem Grund', items });
+  
+  const hasPassivOnly = items.every(i => i.status === 'passiv');
+  const printReason = hasPassivOnly ? 'Sportbefreiung (anwesend, nicht aktiv)' : 'Unterrichtsversäumnis aus triftigem Grund';
+  
+  openPrint({ isoDate: activeDay.iso, reason: printReason, items });
 });
 
 /* Senden */
@@ -1767,7 +1805,7 @@ function openProofDetail(p) {
   activeDetailProofId = p.id;
   document.getElementById('detailDate').textContent = `${p.dateStr}`;
   document.getElementById('detailStudent').textContent = `${p.name || '–'} (Klasse ${p.klasse || '–'})`;
-  document.getElementById('detailReason').textContent = `${p.reason || 'Krankheit / triftiger Grund'}`;
+  document.getElementById('detailReason').textContent = `${p.reason || 'Krankheit / gesundheitliche Gründe'}`;
   document.getElementById('detailImg').src = p.image;
 
   const ul = document.getElementById('detailItems');
