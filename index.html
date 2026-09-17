@@ -22,6 +22,7 @@
       --warn: #C4762A;
       --warn-light: #FBEDE0;
       --bad: #B4432F;
+      --bad-light: #FEE2E2;
       --ok: #15803d;
       --ok-light: #dcfce7;
       --versp-info: #d97706;
@@ -29,7 +30,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--canvas); color: var(--ink); min-height: 100vh; }
-    .container { max-width: 56rem; margin: 0 auto; padding: 1.5rem 1rem; }
+    .container { max-width: 58rem; margin: 0 auto; padding: 1.5rem 1rem; }
     @media (min-width: 640px) { .container { padding: 2.5rem 1.5rem; } }
 
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 1.1rem; padding: 1rem; margin-bottom: 1.25rem; }
@@ -144,11 +145,15 @@
     .btn-del-subject:hover { color: #EF4444; background: #FEF2F2; }
 
     /* Untis Grid */
-    .grid-table { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden; background: var(--surface); }
-    .grid-col { border-right: 1px solid var(--line); background: rgba(245, 247, 250, 0.4); min-height: 380px; }
+    .grid-table { display: grid; grid-template-columns: repeat(5, minmax(135px, 1fr)); border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden; background: var(--surface); }
+    .grid-col { border-right: 1px solid var(--line); background: rgba(245, 247, 250, 0.4); min-height: 380px; display: flex; flex-direction: column; }
     .grid-col:last-child { border-right: none; }
+    .grid-col.is-holiday { background: rgba(241, 245, 249, 0.65); }
     .grid-head { padding: 0.6rem; border-bottom: 1px solid var(--line); text-align: center; cursor: pointer; font-size: 0.75rem; }
+    .holiday-badge { display: inline-block; background: #E2E8F0; color: #475569; font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 1px 4px; margin-top: 2px; }
+    
     .grid-item { margin: 0.5rem; padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); font-size: 0.75rem; cursor: pointer; }
+    .grid-item.holiday-dimmed { opacity: 0.55; }
     
     .status-krank { border-color: rgba(180,67,47,0.4); background: rgba(180,67,47,0.06); border-left: 4px solid var(--bad); }
     .status-versp { border-color: rgba(196,118,42,0.4); background: rgba(196,118,42,0.1); border-left: 4px solid var(--warn); }
@@ -225,6 +230,27 @@
       pointer-events: none;
       opacity: 0;
     }
+
+    /* Zeugnis Statistik */
+    .stat-badge-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (min-width: 640px) {
+      .stat-badge-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .stat-card {
+      border: 1px solid var(--line);
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      background: #F8FAFC;
+    }
+    .stat-val { font-size: 1.4rem; font-weight: 800; line-height: 1.1; }
+    .stat-lbl { font-size: 0.7rem; color: var(--mute); font-weight: 600; margin-top: 0.2rem; }
 
     .modal-backdrop { position: fixed; inset: 0; background: rgba(27,36,48,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
     .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 580px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); max-height: 90vh; overflow-y: auto; }
@@ -386,11 +412,14 @@
         </button>
         <span id="weekRangeLabel" style="font-size:0.875rem; font-weight:600; margin-left:0.4rem;">–</span>
       </div>
-      <button id="openArchiveBtn" class="btn-sub">📁 Nachweise-Ordner</button>
+      <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+        <button id="openStatsBtn" class="btn-sub" style="color:var(--brand); border-color:var(--brand);">📊 Zeugnis-Statistik</button>
+        <button id="openArchiveBtn" class="btn-sub">📁 Nachweise-Ordner</button>
+      </div>
     </div>
 
     <div style="overflow-x:auto; margin-bottom:1rem;">
-      <div id="untisGrid" class="grid-table" style="min-width:650px;"></div>
+      <div id="untisGrid" class="grid-table" style="min-width:670px;"></div>
     </div>
     <p id="historyStats" style="font-size:0.75rem; color:var(--mute); text-align:right;">–</p>
   </section>
@@ -417,7 +446,7 @@
     <div class="card" style="border-color: rgba(180,67,47,0.3); background: #fffaf9;">
       <h2 style="font-size:0.95rem; font-weight:700; color:var(--bad); margin-bottom:0.4rem;">Gefahr-Bereich: Fehlzeiten & Nachweise leeren</h2>
       <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">
-        Löscht alle Fehlzeiten-Logs, Entschuldigungs-Zettel und hochgeladenen Belege. Dein regulärer Stundenplan bleibt vollständig erhalten.
+        Löscht alle Fehlzeiten-Logs, Entschuldigungs-Zettel und lokal gespeicherte Nachweisfotos. Dein regulärer Stundenplan bleibt erhalten.
       </p>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button id="resetAbsencesBtn" class="btn-sub" style="color:var(--bad); border-color:var(--bad); font-weight:700;">
@@ -455,6 +484,68 @@
       <div class="picker-day-head">So</div>
     </div>
     <div id="pickerDaysGrid" class="picker-calendar" style="margin-top:2px;"></div>
+  </div>
+</div>
+
+<!-- Modal: Zeugnis-Statistik -->
+<div id="statsModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:620px;">
+    <div class="flex-between" style="border-bottom:1px solid var(--line); padding-bottom:0.6rem; margin-bottom:0.8rem;">
+      <div>
+        <h3 style="font-size:1.05rem; font-weight:700; color:var(--ink);">📊 Zeugnis- & Fehlzeitenstatistik</h3>
+        <p style="font-size:0.75rem; color:var(--mute);">Genaue Aufschlüsselung der Fehlstunden</p>
+      </div>
+      <button id="closeStatsBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label class="field-label">Auswertungszeitraum</label>
+      <select id="statsPeriodSelect" class="input-box" style="font-weight:600;">
+        <option value="cur_halbjahr">Aktuelles Halbjahr</option>
+        <option value="last_halbjahr">Vorheriges Halbjahr</option>
+        <option value="school_year">Gesamtes Schuljahr</option>
+        <option value="all">Gesamter erfasster Zeitraum</option>
+      </select>
+    </div>
+
+    <div class="stat-badge-grid">
+      <div class="stat-card">
+        <div id="statTotalHours" class="stat-val" style="color:var(--ink);">0</div>
+        <div class="stat-lbl">FEHLSTUNDEN GESAMT</div>
+      </div>
+      <div class="stat-card" style="background:var(--ok-light);">
+        <div id="statExcusedHours" class="stat-val" style="color:var(--ok);">0</div>
+        <div class="stat-lbl" style="color:var(--ok);">ENTSCHULDIGT</div>
+      </div>
+      <div class="stat-card" style="background:var(--bad-light);">
+        <div id="statUnexcusedHours" class="stat-val" style="color:var(--bad);">0</div>
+        <div class="stat-lbl" style="color:var(--bad);">OFFEN / UNENTSCH.</div>
+      </div>
+      <div class="stat-card" style="background:#F0F9FF;">
+        <div id="statPassivHours" class="stat-val" style="color:#0284C7;">0</div>
+        <div class="stat-lbl" style="color:#0284C7;">SPORTBEFREIUNG</div>
+      </div>
+    </div>
+
+    <p style="font-size:0.75rem; font-weight:700; color:var(--ink); margin-bottom:0.4rem;">Aufschlüsselung nach Unterrichtsfach:</p>
+    <div style="border:1px solid var(--line); border-radius:0.65rem; overflow:hidden; margin-bottom:1rem;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+        <thead style="background:#F8FAFC; border-bottom:1px solid var(--line); text-align:left;">
+          <tr>
+            <th style="padding:0.45rem 0.6rem; color:var(--mute);">Fach</th>
+            <th style="padding:0.45rem 0.6rem; text-align:center; color:var(--mute);">Gesamt</th>
+            <th style="padding:0.45rem 0.6rem; text-align:center; color:var(--ok);">Entschuldigt</th>
+            <th style="padding:0.45rem 0.6rem; text-align:center; color:var(--bad);">Offen</th>
+          </tr>
+        </thead>
+        <tbody id="statsSubjectsTable"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="statVerspaetungText" style="font-size:0.75rem; color:var(--warn); font-weight:600;">–</span>
+      <button id="closeStatsBtn2" class="btn-sub" style="padding:0.4rem 1rem;">Schließen</button>
+    </div>
   </div>
 </div>
 
@@ -581,6 +672,146 @@
 
 <script>
 /* ---------------------------------------------------------------------
+   IndexedDB Helfer für Nachweisfotos (Kein 5MB LocalStorage Limit)
+--------------------------------------------------------------------- */
+const DB_NAME = 'KrankmeldungDB_App';
+const DB_VERSION = 1;
+const STORE_PROOFS = 'nachweise';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_PROOFS)) {
+        db.createObjectStore(STORE_PROOFS, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveProofToDB(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROOFS, 'readwrite');
+    tx.objectStore(STORE_PROOFS).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getAllProofsFromDB() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PROOFS, 'readonly');
+      const req = tx.objectStore(STORE_PROOFS).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error("IndexedDB Fehler:", e);
+    return [];
+  }
+}
+
+async function deleteProofFromDB(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROOFS, 'readwrite');
+    tx.objectStore(STORE_PROOFS).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Ferien- & Feiertagskalender (Niedersachsen)
+--------------------------------------------------------------------- */
+const NIEDERSACHSEN_FERIEN = [
+  // 2024/2025
+  { start: '2024-10-04', end: '2024-10-19', name: 'Herbstferien' },
+  { start: '2024-12-23', end: '2025-01-04', name: 'Weihnachtsferien' },
+  { start: '2025-02-03', end: '2025-02-04', name: 'Halbjahresferien' },
+  { start: '2025-04-07', end: '2025-04-19', name: 'Osterferien' },
+  { start: '2025-05-30', end: '2025-05-30', name: 'Brückentag' },
+  { start: '2025-06-10', end: '2025-06-10', name: 'Pfingstferien' },
+  { start: '2025-07-03', end: '2025-08-13', name: 'Sommerferien' },
+  // 2025/2026
+  { start: '2025-10-13', end: '2025-10-25', name: 'Herbstferien' },
+  { start: '2025-12-22', end: '2026-01-05', name: 'Weihnachtsferien' },
+  { start: '2026-01-29', end: '2026-01-30', name: 'Halbjahresferien' },
+  { start: '2026-03-23', end: '2026-04-07', name: 'Osterferien' },
+  { start: '2026-05-15', end: '2026-05-15', name: 'Brückentag' },
+  { start: '2026-05-26', end: '2026-05-26', name: 'Pfingstferien' },
+  { start: '2026-07-02', end: '2026-08-12', name: 'Sommerferien' },
+  // 2026/2027
+  { start: '2026-10-12', end: '2026-10-24', name: 'Herbstferien' },
+  { start: '2026-12-23', end: '2027-01-08', name: 'Weihnachtsferien' },
+  { start: '2027-02-01', end: '2027-02-02', name: 'Halbjahresferien' },
+  { start: '2027-03-22', end: '2027-04-03', name: 'Osterferien' },
+  { start: '2027-05-07', end: '2027-05-07', name: 'Brückentag' },
+  { start: '2027-05-18', end: '2027-05-18', name: 'Pfingstferien' },
+  { start: '2027-07-08', end: '2027-08-18', name: 'Sommerferien' }
+];
+
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month, day, 12, 0, 0);
+}
+
+function getPublicHolidays(year) {
+  const easter = getEasterSunday(year);
+  const shiftDays = (base, days) => {
+    const d = new Date(base);
+    d.setDate(d.getDate() + days);
+    return toIsoDate(d);
+  };
+
+  return {
+    [`${year}-01-01`]: 'Neujahr',
+    [shiftDays(easter, -2)]: 'Karfreitag',
+    [shiftDays(easter, 1)]: 'Ostermontag',
+    [`${year}-05-01`]: 'Tag der Arbeit',
+    [shiftDays(easter, 39)]: 'Christi Himmelfahrt',
+    [shiftDays(easter, 50)]: 'Pfingstmontag',
+    [`${year}-10-03`]: 'Tag der Dt. Einheit',
+    [`${year}-10-31`]: 'Reformationstag',
+    [`${year}-12-25`]: '1. Weihnachtstag',
+    [`${year}-12-26`]: '2. Weihnachtstag'
+  };
+}
+
+function getHolidayOrVacation(isoDate) {
+  if (!isoDate) return null;
+  const year = parseInt(isoDate.split('-')[0], 10);
+  const holidays = getPublicHolidays(year);
+  if (holidays[isoDate]) return holidays[isoDate];
+
+  for (const f of NIEDERSACHSEN_FERIEN) {
+    if (isoDate >= f.start && isoDate <= f.end) {
+      return f.name;
+    }
+  }
+  return null;
+}
+
+/* ---------------------------------------------------------------------
    Firebase Initialisierung
 --------------------------------------------------------------------- */
 const firebaseConfig = {
@@ -645,13 +876,26 @@ function syncWithCloud() {
     const ts = Date.now();
     localLastUpdated = ts;
 
+    // proofsArchive speichert online schlanke Metadaten ohne schwere Base64-Fotos!
+    const lightProofs = proofsArchive.map(p => ({
+      id: p.id,
+      isoDate: p.isoDate,
+      dateStr: p.dateStr,
+      name: p.name,
+      klasse: p.klasse,
+      reason: p.reason,
+      ankunft: p.ankunft || '',
+      items: p.items,
+      timestamp: p.timestamp
+    }));
+
     db.collection('users').doc(currentUser.uid).set({
       schedule,
       student,
       settings,
       reminders,
       statusLog,
-      proofsArchive,
+      proofsArchive: lightProofs,
       lastUpdated: ts
     }).catch(err => console.error("Cloud Sync Fehler:", err));
   }
@@ -683,8 +927,10 @@ function applyCloudData(data) {
     statusLog = data.statusLog || {};
     localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog));
 
-    proofsArchive = data.proofsArchive || [];
-    localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+    if (data.proofsArchive) {
+      proofsArchive = data.proofsArchive;
+      localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+    }
 
     renderSubjects();
     renderUntisWeek();
@@ -754,14 +1000,14 @@ function compressImage(file) {
       img.src = e.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height, max = 900;
+        let w = img.width, h = img.height, max = 950;
         if (w > max || h > max) {
           if (w > h) { h = Math.round((h * max) / w); w = max; }
           else { w = Math.round((w * max) / h); h = max; }
         }
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.65));
+        resolve(canvas.toDataURL('image/jpeg', 0.70));
       };
     };
     reader.onerror = reject;
@@ -821,6 +1067,22 @@ let reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || 'null') || [];
 let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
 let proofsArchive = JSON.parse(localStorage.getItem(LS_PROOFS) || 'null') || [];
 let securityPin = localStorage.getItem(LS_SECURITY_PIN) || '1234';
+
+// Automatische Migration alter Belege aus LocalStorage in IndexedDB
+async function migrateLegacyProofs() {
+  let needsSave = false;
+  for (const p of proofsArchive) {
+    if (p.image) {
+      await saveProofToDB(p);
+      delete p.image;
+      needsSave = true;
+    }
+  }
+  if (needsSave) {
+    localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+  }
+}
+migrateLegacyProofs();
 
 function saveSchedule(s) { localStorage.setItem(LS_SCHEDULE, JSON.stringify(s)); syncWithCloud(); }
 function saveStudent(s) { localStorage.setItem(LS_STUDENT, JSON.stringify(s)); syncWithCloud(); }
@@ -1034,7 +1296,7 @@ function renderReminders() {
     card.querySelector('.proof-in').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & lade hoch...</div>`;
+      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Speichere Nachweis sicher in Datenbank...</div>`;
       
       const base64 = await compressImage(file);
       const proofRecord = { 
@@ -1050,8 +1312,22 @@ function renderReminders() {
         timestamp: Date.now() 
       };
 
+      // In IndexedDB speichern (schützt LocalStorage vor 5MB Überlauf)
+      await saveProofToDB(proofRecord);
+
+      // Metadaten für schnellen Abgleich & Cloud halten
       proofsArchive = proofsArchive.filter(x => x.id !== r.id);
-      proofsArchive.push(proofRecord);
+      proofsArchive.push({
+        id: r.id,
+        isoDate: r.isoDate,
+        dateStr: r.dateStr,
+        name: r.name,
+        klasse: r.klasse,
+        reason: computedReason,
+        ankunft: r.ankunft || '',
+        items: r.items,
+        timestamp: proofRecord.timestamp
+      });
       saveProofsArchive(proofsArchive);
 
       reminders = reminders.filter(x => x.id !== r.id);
@@ -1410,15 +1686,19 @@ function renderUntisWeek() {
     const d = new Date(curMonday); d.setDate(d.getDate() + idx);
     const iso = toIsoDate(d);
     const hasProof = proofDates.has(iso);
+    const holidayName = getHolidayOrVacation(iso);
 
     const col = document.createElement('div');
-    col.className = 'grid-col';
+    col.className = 'grid-col' + (holidayName ? ' is-holiday' : '');
 
     const isToday = iso === toIsoDate(new Date());
     const head = document.createElement('div');
     head.className = 'grid-head';
     if (isToday) head.style.background = 'var(--brand-light)';
-    head.innerHTML = `<strong>${day.slice(0,2)}</strong> ${hasProof ? '<span style="color:var(--ok); font-weight:bold;">✓</span>' : ''}<br><span style="color:var(--mute);">${d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})}</span>`;
+    
+    let holidayLabelHtml = holidayName ? `<span class="holiday-badge" title="${escapeHtml(holidayName)}">🏖️ ${escapeHtml(holidayName.length > 12 ? holidayName.slice(0, 10) + '…' : holidayName)}</span>` : '';
+
+    head.innerHTML = `<strong>${day.slice(0,2)}</strong> ${hasProof ? '<span style="color:var(--ok); font-weight:bold;">✓</span>' : ''}<br><span style="color:var(--mute);">${d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})}</span><br>${holidayLabelHtml}`;
     head.addEventListener('click', () => openDayModal(iso, day));
     col.appendChild(head);
 
@@ -1471,7 +1751,7 @@ function renderUntisWeek() {
         statusClass = ` status-${st}`;
       }
 
-      item.className = 'grid-item' + statusClass;
+      item.className = 'grid-item' + statusClass + (holidayName ? ' holiday-dimmed' : '');
       item.innerHTML = `<div class="flex-between"><strong>${escapeHtml(s.fach)}</strong><small style="color:var(--mute);">${escapeHtml(s.stunde||'')}</small></div>
         <span style="color:var(--mute);">${escapeHtml(s.nachname)}</span>
         ${badge}`;
@@ -1688,25 +1968,29 @@ Klasse ${student.klasse}`
   window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
 });
 
-/* Archiv */
+/* Archiv mit IndexedDB */
 let activeDetailProofId = null;
 
-document.getElementById('openArchiveBtn').addEventListener('click', () => {
+document.getElementById('openArchiveBtn').addEventListener('click', async () => {
   document.getElementById('archiveModal').classList.remove('hidden');
-  renderArchiveUI();
+  await renderArchiveUI();
 });
 
-function renderArchiveUI() {
+async function renderArchiveUI() {
   const box = document.getElementById('archiveContent');
-  if (!proofsArchive || proofsArchive.length === 0) { 
-    box.className = '';
+  box.className = '';
+  box.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--mute); font-size:0.8rem;">Lade Nachweise...</p>';
+
+  const dbProofs = await getAllProofsFromDB();
+
+  if (!dbProofs || dbProofs.length === 0) { 
     box.innerHTML = '<p style="text-align:center; padding:2rem; color:var(--mute); font-size:0.875rem;">Keine Belege vorhanden.</p>'; 
     return; 
   }
   box.className = 'archive-grid-4';
   box.innerHTML = '';
 
-  proofsArchive.slice().reverse().forEach(p => {
+  dbProofs.sort((a,b) => (b.timestamp||0) - (a.timestamp||0)).forEach(p => {
     const card = document.createElement('div');
     card.className = 'archive-thumb-card';
     card.innerHTML = `
@@ -1753,18 +2037,167 @@ function openProofDetail(p) {
 document.getElementById('closeDetailModalBtn').addEventListener('click', () => document.getElementById('proofDetailModal').classList.add('hidden'));
 document.getElementById('closeDetailModalBtn2').addEventListener('click', () => document.getElementById('proofDetailModal').classList.add('hidden'));
 
-document.getElementById('deleteProofDetailBtn').addEventListener('click', () => {
+document.getElementById('deleteProofDetailBtn').addEventListener('click', async () => {
   if (!activeDetailProofId) return;
   if (!confirm("Möchtest du diesen Beleg wirklich unwiderruflich löschen?")) return;
 
+  await deleteProofFromDB(activeDetailProofId);
+
   proofsArchive = proofsArchive.filter(x => x.id !== activeDetailProofId);
   saveProofsArchive(proofsArchive);
+  
   document.getElementById('proofDetailModal').classList.add('hidden');
-  renderArchiveUI();
+  await renderArchiveUI();
   renderUntisWeek();
 });
 
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
+
+/* ---------------------------------------------------------------------
+   Zeugnis- & Fehlzeitenstatistik Modal
+--------------------------------------------------------------------- */
+const statsModal = document.getElementById('statsModal');
+const statsPeriodSelect = document.getElementById('statsPeriodSelect');
+
+document.getElementById('openStatsBtn').addEventListener('click', () => {
+  statsModal.classList.remove('hidden');
+  calculateAndRenderStats();
+});
+document.getElementById('closeStatsBtn').addEventListener('click', () => statsModal.classList.add('hidden'));
+document.getElementById('closeStatsBtn2').addEventListener('click', () => statsModal.classList.add('hidden'));
+statsPeriodSelect.addEventListener('change', calculateAndRenderStats);
+
+function calculateAndRenderStats() {
+  const period = statsPeriodSelect.value;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1 - 12
+
+  // Ermittlung der Grenzen
+  let minDate = '1970-01-01', maxDate = '2099-12-31';
+
+  // Schuljahr-Berechnung (Beginn 1. August, Ende 31. Juli)
+  const schoolStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
+  const schoolEndYear = schoolStartYear + 1;
+
+  if (period === 'cur_halbjahr') {
+    if (currentMonth >= 8 || currentMonth === 1) { // 1. Halbjahr: Aug - Jan
+      minDate = `${schoolStartYear}-08-01`;
+      maxDate = `${schoolStartYear + 1}-01-31`;
+    } else { // 2. Halbjahr: Feb - Jul
+      minDate = `${schoolEndYear}-02-01`;
+      maxDate = `${schoolEndYear}-07-31`;
+    }
+  } else if (period === 'last_halbjahr') {
+    if (currentMonth >= 8 || currentMonth === 1) { // Vorheriges war 2. HJ des Vorjahres
+      minDate = `${schoolStartYear}-02-01`;
+      maxDate = `${schoolStartYear}-07-31`;
+    } else { // Vorheriges war 1. HJ dieses Jahres
+      minDate = `${schoolStartYear}-08-01`;
+      maxDate = `${schoolStartYear + 1}-01-31`;
+    }
+  } else if (period === 'school_year') {
+    minDate = `${schoolStartYear}-08-01`;
+    maxDate = `${schoolEndYear}-07-31`;
+  }
+
+  // Finde alle Fächer-Referenzen aus dem Stundenplan
+  const subjectMap = {};
+  WEEKDAYS.forEach(day => {
+    (schedule[day] || []).forEach(s => {
+      subjectMap[s.id] = s.fach;
+    });
+  });
+
+  const proofDates = new Set((proofsArchive || []).map(p => p.isoDate));
+
+  let totalMissed = 0;
+  let totalExcused = 0;
+  let totalUnexcused = 0;
+  let totalPassiv = 0;
+  let totalVerspCount = 0;
+
+  const subjectStats = {}; // fach -> { total, excused, unexcused, passiv }
+
+  Object.entries(statusLog).forEach(([key, st]) => {
+    const [iso, subjId] = key.split('|');
+    if (iso < minDate || iso > maxDate) return;
+
+    const fachName = subjectMap[subjId] || 'Sonstige Fächer';
+    if (!subjectStats[fachName]) {
+      subjectStats[fachName] = { total: 0, excused: 0, unexcused: 0, passiv: 0 };
+    }
+
+    const hasProof = proofDates.has(iso);
+
+    if (st === 'krank') {
+      totalMissed++;
+      subjectStats[fachName].total++;
+      if (hasProof) {
+        totalExcused++;
+        subjectStats[fachName].excused++;
+      } else {
+        totalUnexcused++;
+        subjectStats[fachName].unexcused++;
+      }
+    } else if (st === 'verspaetung') {
+      totalVerspCount++;
+      totalMissed++;
+      subjectStats[fachName].total++;
+      if (hasProof) {
+        totalExcused++;
+        subjectStats[fachName].excused++;
+      } else {
+        totalUnexcused++;
+        subjectStats[fachName].unexcused++;
+      }
+    } else if (st === 'verspaetung_ohne') {
+      totalVerspCount++;
+    } else if (st === 'passiv') {
+      totalPassiv++;
+      totalMissed++;
+      subjectStats[fachName].total++;
+      subjectStats[fachName].passiv++;
+      if (hasProof) {
+        totalExcused++;
+        subjectStats[fachName].excused++;
+      } else {
+        totalUnexcused++;
+        subjectStats[fachName].unexcused++;
+      }
+    }
+  });
+
+  document.getElementById('statTotalHours').textContent = totalMissed;
+  document.getElementById('statExcusedHours').textContent = totalExcused;
+  document.getElementById('statUnexcusedHours').textContent = totalUnexcused;
+  document.getElementById('statPassivHours').textContent = totalPassiv;
+
+  document.getElementById('statVerspaetungText').textContent = 
+    `Zusätzlich erfasst: ${totalVerspCount} Verspätung${totalVerspCount === 1 ? '' : 'en'}.`;
+
+  const tbody = document.getElementById('statsSubjectsTable');
+  tbody.innerHTML = '';
+
+  const fachKeys = Object.keys(subjectStats).sort();
+  if (fachKeys.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:1.5rem; text-align:center; color:var(--mute);">Keine Fehlzeiten im gewählten Zeitraum erfasst.</td></tr>`;
+    return;
+  }
+
+  fachKeys.forEach(f => {
+    const data = subjectStats[f];
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--line)';
+    tr.innerHTML = `
+      <td style="padding:0.45rem 0.6rem; font-weight:600;">${escapeHtml(f)}</td>
+      <td style="padding:0.45rem 0.6rem; text-align:center; font-weight:700;">${data.total}</td>
+      <td style="padding:0.45rem 0.6rem; text-align:center; color:var(--ok); font-weight:700;">${data.excused}</td>
+      <td style="padding:0.45rem 0.6rem; text-align:center; color:var(--bad); font-weight:700;">${data.unexcused}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
 /* Schedule Editor */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
@@ -1876,7 +2309,7 @@ document.getElementById('resetScheduleBtn').addEventListener('click', () => {
 });
 
 /* Gefahrenbereich mit PIN */
-document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
+document.getElementById('resetAbsencesBtn').addEventListener('click', async () => {
   const enteredPin = prompt("Gib den 4-stelligen Bestätigungscode ein (Standard: 1234):");
   if (enteredPin === null) return;
 
@@ -1884,7 +2317,7 @@ document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
     return alert("Falscher Code! Vorgang abgebrochen.");
   }
 
-  if (confirm("Bist du dir ganz sicher? Alle Fehlzeiten, Entschuldigungen und Fotos werden jetzt auf allen Geräten gelöscht!")) {
+  if (confirm("Bist du dir ganz sicher? Alle Fehlzeiten, Entschuldigungen und Fotos werden jetzt vollständig gelöscht!")) {
     statusLog = {};
     reminders = [];
     proofsArchive = [];
@@ -1893,9 +2326,18 @@ document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
     saveReminders(reminders);
     saveProofsArchive(proofsArchive);
 
+    // Lösche auch den IndexedDB-Speicher
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_PROOFS, 'readwrite');
+      tx.objectStore(STORE_PROOFS).clear();
+    } catch (err) {
+      console.warn("IndexedDB Clear:", err);
+    }
+
     renderUntisWeek();
     renderReminders();
-    renderArchiveUI();
+    await renderArchiveUI();
 
     alert("✓ Alle Fehlzeiten und Belege wurden erfolgreich zurückgesetzt!");
   }
