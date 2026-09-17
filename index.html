@@ -22,6 +22,8 @@
       --warn: #C4762A;
       --warn-light: #FBEDE0;
       --bad: #B4432F;
+      --ok: #15803d;
+      --ok-light: #dcfce7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--canvas); color: var(--ink); min-height: 100vh; }
@@ -62,7 +64,7 @@
     .hidden { display: none !important; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
 
-    /* Stundenplan Editor Styling */
+    /* Stundenplan Editor */
     .schedule-day-block {
       border: 1px solid #E2E8F0;
       border-radius: 0.75rem;
@@ -150,9 +152,10 @@
     .status-versp { border-color: rgba(196,118,42,0.4); background: rgba(196,118,42,0.1); border-left: 4px solid var(--warn); }
     .status-passiv { border-color: #7dd3fc; background: #f0f9ff; border-left: 4px solid #0284c7; }
     .status-entfaellt { border-style: dashed; opacity: 0.7; background: #e2e8f0; text-decoration: line-through; }
+    .status-done { border-color: rgba(21,128,61,0.5); background: rgba(220,252,231,0.4); border-left: 4px solid var(--ok); }
 
     .modal-backdrop { position: fixed; inset: 0; background: rgba(27,36,48,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
-    .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 380px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); }
+    .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 440px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -326,7 +329,7 @@
     <div class="card">
       <div class="flex-between" style="margin-bottom:1rem;">
         <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
-        <span style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert automatisch</span>
+        <span style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert & synchronisiert automatisch</span>
       </div>
       <div id="scheduleEditor"></div>
     </div>
@@ -398,7 +401,7 @@
 
 <!-- Modal: Ganzer Tag bearbeiten -->
 <div id="dayModal" class="modal-backdrop hidden">
-  <div class="modal-card" style="max-width:440px;">
+  <div class="modal-card">
     <h3 id="dayModalTitle" style="font-size:1rem; font-weight:700;">Ganzen Tag bearbeiten</h3>
     <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">Status für alle Stunden setzen:</p>
 
@@ -432,7 +435,7 @@
 
 <script>
 /* ---------------------------------------------------------------------
-   Firebase Initialisierung (Exakt deine Einstellungen beibehalten)
+   Firebase Initialisierung (Dein unveränderter, funktionierender API-Schlüssel)
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAKxyP5jspdjKEyOLcRaLvoTffWUkR_148",
@@ -467,7 +470,7 @@ try {
         authUserInfo.classList.remove('hidden');
         authUserEmail.textContent = user.email;
 
-        // Cloud-Daten in Echtzeit beobachten
+        // Cloud-Daten in Echtzeit beobachten (synchronisiert beide Handys/iPads sofort)
         const userRef = db.collection('users').doc(user.uid);
         unsubscribeDoc = userRef.onSnapshot((docSnap) => {
           if (docSnap.exists) {
@@ -475,7 +478,7 @@ try {
           } else {
             pushAllToCloud();
           }
-        });
+        }, err => console.warn("Firestore Lesefehler:", err));
       } else {
         authBtnLabel.textContent = '☁️ Anmelden (Sync)';
         document.getElementById('authBtn').style.color = 'var(--mute)';
@@ -488,10 +491,16 @@ try {
   console.warn("Firebase konnte nicht initialisiert werden (Offline-Modus):", e);
 }
 
+/* Vollständige Synchronisation inklusive der Nachweise / Fotos */
 function syncWithCloud() {
   if (db && currentUser) {
     db.collection('users').doc(currentUser.uid).set({
-      schedule, student, settings, reminders, statusLog
+      schedule,
+      student,
+      settings,
+      reminders,
+      statusLog,
+      proofsArchive
     }, { merge: true }).catch(err => console.error("Cloud Sync Fehler:", err));
   }
 }
@@ -500,7 +509,11 @@ function pushAllToCloud() { syncWithCloud(); }
 
 function applyCloudData(data) {
   if (!data) return;
-  if (data.schedule) { schedule = data.schedule; localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); renderScheduleEditor(); }
+  if (data.schedule) { 
+    schedule = data.schedule; 
+    localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); 
+    renderScheduleEditor(); 
+  }
   if (data.student) { 
     student = data.student; 
     localStorage.setItem(LS_STUDENT, JSON.stringify(student)); 
@@ -510,11 +523,23 @@ function applyCloudData(data) {
   if (data.settings) { 
     settings = data.settings; 
     localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); 
-    document.getElementById('apiEndpoint').value = settings.apiEndpoint || '';
+    document.getElementById('apiEndpoint').value = settings.apiEndpoint || ''; 
   }
-  if (data.reminders) { reminders = data.reminders; localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); renderReminders(); }
-  if (data.statusLog) { statusLog = data.statusLog; localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); renderUntisWeek(); }
+  if (data.reminders) { 
+    reminders = data.reminders; 
+    localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); 
+    renderReminders(); 
+  }
+  if (data.statusLog) { 
+    statusLog = data.statusLog; 
+    localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); 
+  }
+  if (data.proofsArchive) {
+    proofsArchive = data.proofsArchive;
+    localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+  }
   renderSubjects();
+  renderUntisWeek();
 }
 
 /* Auth Modal Handlers */
@@ -550,6 +575,12 @@ document.getElementById('registerSubmitBtn').addEventListener('click', () => {
   if (!auth) return;
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
+  if (!email || pass.length < 6) {
+    const errEl = document.getElementById('authError');
+    errEl.textContent = "Passwort mind. 6 Zeichen lang!";
+    errEl.classList.remove('hidden');
+    return;
+  }
   auth.createUserWithEmailAndPassword(email, pass).then(() => {
     document.getElementById('authModal').classList.add('hidden');
   }).catch(err => {
@@ -564,33 +595,8 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 /* ---------------------------------------------------------------------
-   IndexedDB Belege
+   Komprimierung für Cloud-Übertragung
 --------------------------------------------------------------------- */
-const DB_NAME = 'KrankmeldungDB', STORE_NAME = 'nachweise';
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e) => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function saveProofToDB(rec) {
-  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readwrite');
-  tx.objectStore(STORE_NAME).put(rec);
-  return new Promise(res => tx.oncomplete = res);
-}
-async function getAllProofsFromDB() {
-  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readonly');
-  const req = tx.objectStore(STORE_NAME).getAll();
-  return new Promise(res => req.onsuccess = () => res(req.result || []));
-}
-async function deleteProofFromDB(id) {
-  const db = await openDB(), tx = db.transaction(STORE_NAME, 'readwrite');
-  tx.objectStore(STORE_NAME).delete(id);
-  return new Promise(res => tx.oncomplete = res);
-}
-
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -600,14 +606,14 @@ function compressImage(file) {
       img.src = e.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height, max = 1200;
+        let w = img.width, h = img.height, max = 900;
         if (w > max || h > max) {
           if (w > h) { h = Math.round((h * max) / w); w = max; }
           else { w = Math.round((w * max) / h); h = max; }
         }
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        resolve(canvas.toDataURL('image/jpeg', 0.65));
       };
     };
     reader.onerror = reject;
@@ -618,9 +624,12 @@ function compressImage(file) {
    State & App-Logik
 --------------------------------------------------------------------- */
 const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
-const LS_SCHEDULE = 'krankmelden_stundenplan', LS_STUDENT = 'krankmelden_schueler';
-const LS_SETTINGS = 'krankmelden_settings', LS_REMINDERS = 'krankmelden_erinnerungen';
+const LS_SCHEDULE = 'krankmelden_stundenplan';
+const LS_STUDENT = 'krankmelden_schueler';
+const LS_SETTINGS = 'krankmelden_settings';
+const LS_REMINDERS = 'krankmelden_erinnerungen';
 const LS_STATUS_LOG = 'krankmelden_status_log';
+const LS_PROOFS = 'krankmelden_proofs_archive';
 
 const DEFAULT_SCHEDULE = {
   Montag: [
@@ -656,16 +665,18 @@ const DEFAULT_SCHEDULE = {
 function cryptoId() { return 'x' + Math.random().toString(36).slice(2, 10); }
 
 let schedule = JSON.parse(localStorage.getItem(LS_SCHEDULE) || 'null') || structuredClone(DEFAULT_SCHEDULE);
-let student = JSON.parse(localStorage.getItem(LS_STUDENT) || 'null') || { name: 'Moaz Abdulaziz', klasse: '11G1' };
+let student = JSON.parse(localStorage.getItem(LS_STUDENT) || 'null') || { name: '', klasse: '' };
 let settings = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { apiEndpoint: '' };
 let reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || 'null') || [];
 let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
+let proofsArchive = JSON.parse(localStorage.getItem(LS_PROOFS) || 'null') || [];
 
 function saveSchedule(s) { localStorage.setItem(LS_SCHEDULE, JSON.stringify(s)); syncWithCloud(); }
 function saveStudent(s) { localStorage.setItem(LS_STUDENT, JSON.stringify(s)); syncWithCloud(); }
 function saveSettings(s) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); syncWithCloud(); }
 function saveReminders(r) { localStorage.setItem(LS_REMINDERS, JSON.stringify(r)); syncWithCloud(); }
 function saveStatusLog(l) { localStorage.setItem(LS_STATUS_LOG, JSON.stringify(l)); syncWithCloud(); }
+function saveProofsArchive(p) { localStorage.setItem(LS_PROOFS, JSON.stringify(p)); syncWithCloud(); }
 
 function toIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -694,7 +705,6 @@ function getDeadlineInfo(iso) {
   return { dlStr, text, color };
 }
 
-/* Initialer Header */
 const now = new Date();
 const map = { 1: 'Montag', 2: 'Dienstag', 3: 'Mittwoch', 4: 'Donnerstag', 5: 'Freitag' };
 const curWeekday = map[now.getDay()] || null;
@@ -704,7 +714,6 @@ document.getElementById('todayLine').textContent = curWeekday
   ? `Heute ist ${now.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}.` 
   : 'Heute ist kein Schultag – wähle unten einen Tag zum Melden.';
 
-/* Tab-Wechsel */
 const tabButtons = document.querySelectorAll('.tab-btn');
 const panels = {
   melden: document.getElementById('panel-melden'),
@@ -721,7 +730,6 @@ tabButtons.forEach(btn => {
   });
 });
 
-/* Melde-Formular */
 const daySelect = document.getElementById('daySelect');
 WEEKDAYS.forEach(d => {
   const o = document.createElement('option'); o.value = d; o.textContent = d; daySelect.appendChild(o);
@@ -760,7 +768,7 @@ document.querySelectorAll('input[name="meldeArt"]').forEach(r => {
   });
 });
 
-/* Personen-Angaben mit automatischem Speichern */
+/* Personen-Angaben mit automatischem Cloud-Sync */
 const stuNameInp = document.getElementById('stuName');
 const stuKlasseInp = document.getElementById('stuKlasse');
 
@@ -777,7 +785,7 @@ stuKlasseInp.addEventListener('input', () => {
   saveStudent(student);
 });
 
-/* API-Endpoint mit automatischem Speichern */
+/* API-Endpoint mit automatischem Cloud-Sync */
 const apiEndpointInp = document.getElementById('apiEndpoint');
 apiEndpointInp.value = settings.apiEndpoint || '';
 apiEndpointInp.addEventListener('input', () => {
@@ -794,7 +802,11 @@ function syncReminderForDate(iso, dayName) {
   });
   const idx = reminders.findIndex(r => r.isoDate === iso);
   if (sick.length === 0) {
-    if (idx !== -1) { reminders.splice(idx, 1); saveReminders(reminders); renderReminders(); }
+    if (idx !== -1) { 
+      reminders.splice(idx, 1); 
+      saveReminders(reminders); 
+      renderReminders(); 
+    }
     return;
   }
   const safe = getSafeDateStrings(iso);
@@ -836,12 +848,30 @@ function renderReminders() {
     card.querySelector('.proof-in').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & speichere...</div>`;
+      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & lade in Cloud hoch...</div>`;
+      
       const base64 = await compressImage(file);
-      await saveProofToDB({ id: r.id, isoDate: r.isoDate, dateStr: r.dateStr, name: r.name, klasse: r.klasse, items: r.items, image: base64, timestamp: Date.now() });
+      const proofRecord = { 
+        id: r.id, 
+        isoDate: r.isoDate, 
+        dateStr: r.dateStr, 
+        name: r.name, 
+        klasse: r.klasse, 
+        items: r.items, 
+        image: base64, 
+        timestamp: Date.now() 
+      };
+
+      // In Cloud-Archiv aufnehmen und sofort synchronisieren
+      proofsArchive = proofsArchive.filter(x => x.id !== r.id);
+      proofsArchive.push(proofRecord);
+      saveProofsArchive(proofsArchive);
+
       reminders = reminders.filter(x => x.id !== r.id);
       saveReminders(reminders);
+      
       renderReminders();
+      renderUntisWeek();
     });
     box.appendChild(card);
   });
@@ -886,7 +916,7 @@ function openPrint(r) {
   win.document.close();
 }
 
-/* Untis Raster Logik */
+/* Untis Raster Logik mit Nachweis-Erkennung */
 let curMonday = new Date();
 curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1));
 curMonday.setHours(12,0,0,0);
@@ -904,11 +934,15 @@ function renderUntisWeek() {
   const fri = new Date(curMonday); fri.setDate(fri.getDate() + 4);
   document.getElementById('weekRangeLabel').textContent = `${curMonday.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})} – ${fri.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
 
-  let totalKrank = 0, totalVersp = 0;
+  const proofDates = new Set((proofsArchive || []).map(p => p.isoDate));
+
+  let totalKrank = 0, totalVersp = 0, totalDone = 0;
 
   WEEKDAYS.forEach((day, idx) => {
     const d = new Date(curMonday); d.setDate(d.getDate() + idx);
     const iso = toIsoDate(d);
+    const hasProof = proofDates.has(iso);
+
     const col = document.createElement('div');
     col.className = 'grid-col';
 
@@ -916,25 +950,45 @@ function renderUntisWeek() {
     const head = document.createElement('div');
     head.className = 'grid-head';
     if (isToday) head.style.background = 'var(--brand-light)';
-    head.innerHTML = `<strong>${day.slice(0,2)}</strong><br><span style="color:var(--mute);">${d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})}</span>`;
+    head.innerHTML = `<strong>${day.slice(0,2)}</strong> ${hasProof ? '<span style="color:var(--ok); font-weight:bold;">✓</span>' : ''}<br><span style="color:var(--mute);">${d.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})}</span>`;
     head.addEventListener('click', () => openDayModal(iso, day));
     col.appendChild(head);
 
     (schedule[day] || []).forEach(s => {
       const st = statusLog[`${iso}|${s.id}`] || 'anwesend';
-      if (st === 'krank') totalKrank++;
+      if (st === 'krank') {
+        totalKrank++;
+        if (hasProof) totalDone++;
+      }
       if (st === 'verspaetung') totalVersp++;
 
       const item = document.createElement('div');
-      item.className = 'grid-item' + (st !== 'anwesend' ? ` status-${st}` : '');
-      item.innerHTML = `<strong>${s.fach}</strong> <small>(${s.stunde||''})</small><br><span style="color:var(--mute);">${s.nachname}</span>`;
+      let statusClass = '';
+      let badge = '';
+
+      if (st === 'krank') {
+        if (hasProof) {
+          statusClass = ' status-done';
+          badge = '<span style="color:var(--ok); font-size:9px; font-weight:bold; display:block; text-align:right;">✓ Entschuldigt</span>';
+        } else {
+          statusClass = ' status-krank';
+          badge = '<span style="color:var(--bad); font-size:9px; font-weight:bold; display:block; text-align:right;">Gefehlt</span>';
+        }
+      } else if (st !== 'anwesend') {
+        statusClass = ` status-${st}`;
+      }
+
+      item.className = 'grid-item' + statusClass;
+      item.innerHTML = `<div class="flex-between"><strong>${s.fach}</strong><small style="color:var(--mute);">${s.stunde||''}</small></div>
+        <span style="color:var(--mute);">${s.nachname}</span>
+        ${badge}`;
       item.addEventListener('click', () => openCellModal(iso, day, s, st));
       col.appendChild(item);
     });
 
     grid.appendChild(col);
   });
-  document.getElementById('historyStats').textContent = `In dieser Woche: ${totalKrank} Std. krank, ${totalVersp} Std. verspätet.`;
+  document.getElementById('historyStats').textContent = `In dieser Woche: ${totalKrank} Std. krank (${totalDone} mit Nachweis erledigt), ${totalVersp} Std. verspätet.`;
 }
 
 /* Modals Handlers */
@@ -1044,30 +1098,37 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
 });
 
-/* Archiv */
-document.getElementById('openArchiveBtn').addEventListener('click', async () => {
+/* Archiv direkt aus Cloud-State */
+document.getElementById('openArchiveBtn').addEventListener('click', () => {
   document.getElementById('archiveModal').classList.remove('hidden');
+  renderArchiveUI();
+});
+
+function renderArchiveUI() {
   const box = document.getElementById('archiveContent');
-  box.innerHTML = 'Lade...';
-  const list = await getAllProofsFromDB();
-  if (list.length === 0) { box.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--mute);">Keine Belege vorhanden.</p>'; return; }
+  if (!proofsArchive || proofsArchive.length === 0) { 
+    box.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--mute);">Keine Belege vorhanden.</p>'; 
+    return; 
+  }
   box.innerHTML = '';
-  list.forEach(p => {
+  proofsArchive.forEach(p => {
     const d = document.createElement('div');
     d.style.marginBottom = '1rem';
     d.innerHTML = `<strong>${p.dateStr}</strong> - ${(p.items||[]).map(i=>i.fach).join(', ')}<br>
       <img src="${p.image}" style="max-width:100%; border-radius:0.5rem; margin-top:0.3rem;">
       <button class="btn-sub del-p" style="color:var(--bad); margin-top:0.3rem;">Löschen</button>`;
-    d.querySelector('.del-p').addEventListener('click', async () => {
-      await deleteProofFromDB(p.id);
+    d.querySelector('.del-p').addEventListener('click', () => {
+      proofsArchive = proofsArchive.filter(x => x.id !== p.id);
+      saveProofsArchive(proofsArchive);
       d.remove();
+      renderUntisWeek();
     });
     box.appendChild(d);
   });
-});
+}
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor – Speichert jetzt direkt automatisch */
+/* Schedule Editor – Speichert und synchronisiert bei jedem Tastenanschlag */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1117,7 +1178,6 @@ function renderScheduleEditor() {
         <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
       `;
 
-      // Direkte automatische Speicherung bei Tastatur- oder Dropdown-Eingabe
       row.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('input', (e) => {
           s[e.target.dataset.field] = e.target.value;
@@ -1127,7 +1187,6 @@ function renderScheduleEditor() {
         });
       });
 
-      // Automatisches Speichern beim Löschen eines Fachs
       row.querySelector('.btn-del-subject').addEventListener('click', () => {
         schedule[day].splice(i, 1);
         saveSchedule(schedule);
@@ -1139,7 +1198,6 @@ function renderScheduleEditor() {
       rowsContainer.appendChild(row);
     });
 
-    // Automatisches Speichern beim Hinzufügen eines Fachs
     block.querySelector(`[data-add-to="${day}"]`).addEventListener('click', () => {
       openScheduleDays.add(day);
       schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
