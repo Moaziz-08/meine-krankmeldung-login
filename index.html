@@ -401,7 +401,7 @@
 
 <!-- Modal: Ganzer Tag bearbeiten -->
 <div id="dayModal" class="modal-backdrop hidden">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:440px;">
     <h3 id="dayModalTitle" style="font-size:1rem; font-weight:700;">Ganzen Tag bearbeiten</h3>
     <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">Status für alle Stunden setzen:</p>
 
@@ -435,7 +435,7 @@
 
 <script>
 /* ---------------------------------------------------------------------
-   Firebase Initialisierung (Dein unveränderter, funktionierender API-Schlüssel)
+   Firebase Initialisierung
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAKxyP5jspdjKEyOLcRaLvoTffWUkR_148",
@@ -447,6 +447,8 @@ const firebaseConfig = {
 };
 
 let auth = null, db = null, currentUser = null, unsubscribeDoc = null;
+let isSyncingFromCloud = false;
+let localLastUpdated = 0;
 
 try {
   if (window.firebase) {
@@ -470,7 +472,7 @@ try {
         authUserInfo.classList.remove('hidden');
         authUserEmail.textContent = user.email;
 
-        // Cloud-Daten in Echtzeit beobachten (synchronisiert beide Handys/iPads sofort)
+        // Echtzeit-Listener: Lauscht auf Cloud-Änderungen von anderen Geräten
         const userRef = db.collection('users').doc(user.uid);
         unsubscribeDoc = userRef.onSnapshot((docSnap) => {
           if (docSnap.exists) {
@@ -491,16 +493,22 @@ try {
   console.warn("Firebase konnte nicht initialisiert werden (Offline-Modus):", e);
 }
 
-/* Vollständige Synchronisation inklusive der Nachweise / Fotos */
+/* Vollständige Synchronisation mit Echo-Schutz */
 function syncWithCloud() {
+  if (isSyncingFromCloud) return; // Verhindert Endlosschleifen beim Empfangen
+
   if (db && currentUser) {
+    const ts = Date.now();
+    localLastUpdated = ts;
+
     db.collection('users').doc(currentUser.uid).set({
       schedule,
       student,
       settings,
       reminders,
       statusLog,
-      proofsArchive
+      proofsArchive,
+      lastUpdated: ts
     }, { merge: true }).catch(err => console.error("Cloud Sync Fehler:", err));
   }
 }
@@ -509,37 +517,48 @@ function pushAllToCloud() { syncWithCloud(); }
 
 function applyCloudData(data) {
   if (!data) return;
-  if (data.schedule) { 
-    schedule = data.schedule; 
-    localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); 
-    renderScheduleEditor(); 
+
+  // Ältere Pakete ignorieren
+  if (data.lastUpdated && data.lastUpdated < localLastUpdated) return;
+  if (data.lastUpdated) localLastUpdated = data.lastUpdated;
+
+  isSyncingFromCloud = true; // Sperre für ausgehende Speicher-Events aktivieren
+
+  try {
+    if (data.schedule) { 
+      schedule = data.schedule; 
+      localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); 
+      renderScheduleEditor(); 
+    }
+    if (data.student) { 
+      student = data.student; 
+      localStorage.setItem(LS_STUDENT, JSON.stringify(student)); 
+      document.getElementById('stuName').value = student.name || ''; 
+      document.getElementById('stuKlasse').value = student.klasse || ''; 
+    }
+    if (data.settings) { 
+      settings = data.settings; 
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); 
+      document.getElementById('apiEndpoint').value = settings.apiEndpoint || ''; 
+    }
+    if (data.reminders) { 
+      reminders = data.reminders; 
+      localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); 
+      renderReminders(); 
+    }
+    if (data.statusLog) { 
+      statusLog = data.statusLog; 
+      localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); 
+    }
+    if (data.proofsArchive) {
+      proofsArchive = data.proofsArchive;
+      localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+    }
+    renderSubjects();
+    renderUntisWeek();
+  } finally {
+    setTimeout(() => { isSyncingFromCloud = false; }, 100);
   }
-  if (data.student) { 
-    student = data.student; 
-    localStorage.setItem(LS_STUDENT, JSON.stringify(student)); 
-    document.getElementById('stuName').value = student.name || ''; 
-    document.getElementById('stuKlasse').value = student.klasse || ''; 
-  }
-  if (data.settings) { 
-    settings = data.settings; 
-    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); 
-    document.getElementById('apiEndpoint').value = settings.apiEndpoint || ''; 
-  }
-  if (data.reminders) { 
-    reminders = data.reminders; 
-    localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); 
-    renderReminders(); 
-  }
-  if (data.statusLog) { 
-    statusLog = data.statusLog; 
-    localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); 
-  }
-  if (data.proofsArchive) {
-    proofsArchive = data.proofsArchive;
-    localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
-  }
-  renderSubjects();
-  renderUntisWeek();
 }
 
 /* Auth Modal Handlers */
@@ -595,7 +614,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 /* ---------------------------------------------------------------------
-   Komprimierung für Cloud-Übertragung
+   Bild-Komprimierung
 --------------------------------------------------------------------- */
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -768,7 +787,7 @@ document.querySelectorAll('input[name="meldeArt"]').forEach(r => {
   });
 });
 
-/* Personen-Angaben mit automatischem Cloud-Sync */
+/* Automatische Speicherung bei Eingabe */
 const stuNameInp = document.getElementById('stuName');
 const stuKlasseInp = document.getElementById('stuKlasse');
 
@@ -776,19 +795,21 @@ stuNameInp.value = student.name || '';
 stuKlasseInp.value = student.klasse || '';
 
 stuNameInp.addEventListener('input', () => {
+  if (isSyncingFromCloud) return;
   student.name = stuNameInp.value.trim();
   saveStudent(student);
 });
 
 stuKlasseInp.addEventListener('input', () => {
+  if (isSyncingFromCloud) return;
   student.klasse = stuKlasseInp.value.trim();
   saveStudent(student);
 });
 
-/* API-Endpoint mit automatischem Cloud-Sync */
 const apiEndpointInp = document.getElementById('apiEndpoint');
 apiEndpointInp.value = settings.apiEndpoint || '';
 apiEndpointInp.addEventListener('input', () => {
+  if (isSyncingFromCloud) return;
   settings.apiEndpoint = apiEndpointInp.value.trim();
   saveSettings(settings);
 });
@@ -862,7 +883,6 @@ function renderReminders() {
         timestamp: Date.now() 
       };
 
-      // In Cloud-Archiv aufnehmen und sofort synchronisieren
       proofsArchive = proofsArchive.filter(x => x.id !== r.id);
       proofsArchive.push(proofRecord);
       saveProofsArchive(proofsArchive);
@@ -916,7 +936,6 @@ function openPrint(r) {
   win.document.close();
 }
 
-/* Untis Raster Logik mit Nachweis-Erkennung */
 let curMonday = new Date();
 curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1));
 curMonday.setHours(12,0,0,0);
@@ -1180,6 +1199,7 @@ function renderScheduleEditor() {
 
       row.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('input', (e) => {
+          if (isSyncingFromCloud) return;
           s[e.target.dataset.field] = e.target.value;
           saveSchedule(schedule);
           renderSubjects();
