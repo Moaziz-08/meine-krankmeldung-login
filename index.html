@@ -1065,7 +1065,9 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Druck-Vorschau (Exakt 130 mm x 68 mm für absolut saubere 14 cm Papierausgabe) */
+/* ---------------------------------------------------------------------
+   Druck-Vorschau: Genormt auf 14 cm × 7 cm (Design aus Krankmeldung)
+--------------------------------------------------------------------- */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -1074,190 +1076,227 @@ function openPrint(r) {
   const dl = getDeadlineInfo(r.isoDate);
   const validItems = (r.items || []).filter(i => i.status !== 'entfaellt');
   
-  const isPassiv = (validItems.length > 0 && validItems.every(i => i.status === 'passiv')) || (r.reason && r.reason.toLowerCase().includes('sportbefreiung'));
-
-  const rows = validItems.map(i => `
-    <tr>
-      <td class="stunde-col">${escapeHtml(i.stunde||'–')}. Std.</td>
-      <td class="fach-col">${escapeHtml(i.fach)}</td>
-      <td class="lehrer-col">${escapeHtml(i.lehrer||'')}</td>
-    </tr>
-  `).join('');
+  const isPassiv = (validItems.length > 0 && validItems.every(i => i.status === 'passiv')) || 
+                   (r.reason && r.reason.toLowerCase().includes('sportbefreiung'));
 
   let displayTitle = isPassiv ? 'Sportbefreiung' : 'Entschuldigung';
   let displaySubtitle = isPassiv ? 'Befreiung von der aktiven Teilnahme' : 'Vorlage für Lehrkräfte';
-  
   let displayReason = resolveReasonText(validItems, r.reason);
   if (isPassiv) displayReason = 'Sportbefreiung (anwesend, nicht aktiv)';
   if (r.ankunft) displayReason += ` (Ankunft: ${r.ankunft} Uhr)`;
 
-  let statementText = isPassiv
-    ? 'Ich bitte zu entschuldigen, dass mein Kind am oben aufgeführten Unterricht anwesend war, aber aus gesundheitlichen Gründen nicht aktiv teilnehmen konnte.'
-    : 'Ich bitte, das Fehlen / die Verspätung meines Kindes im oben aufgeführten Unterricht aus dem genannten triftigen Grund zu entschuldigen.';
+  const statementText = isPassiv
+    ? 'Ich bitte zu entschuldigen, dass mein Kind am oben aufgeführten Unterricht zwar anwesend war, jedoch aus gesundheitlichen Gründen nicht aktiv teilnehmen konnte.'
+    : 'Ich bitte, das Fehlen / die Verspätung meines Kindes im oben genannten Unterricht aus dem angegebenen triftigen Grund zu entschuldigen.';
+
+  const rows = validItems.map(i => `
+    <tr>
+      <td style="padding: 2.5px 4px; border-bottom: 1px solid #E2E8F0; font-weight: 700; color: #146B69; width: 55px;">${escapeHtml(i.stunde ? i.stunde + '. Std.' : '–')}</td>
+      <td style="padding: 2.5px 4px; border-bottom: 1px solid #E2E8F0; font-weight: 600;">${escapeHtml(i.fach)}</td>
+      <td style="padding: 2.5px 4px; border-bottom: 1px solid #E2E8F0; color: #64748B; text-align: right;">${escapeHtml(i.lehrer || '')}</td>
+    </tr>
+  `).join('');
 
   const docContent = `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(displayTitle)} drucken</title>
+  <title>${escapeHtml(displayTitle)} – ${escapeHtml(safe.dateStr)}</title>
   <style>
-    @page {
-      size: A4 portrait;
-      margin: 10mm;
+    @page { 
+      size: A4 portrait; 
+      margin: 10mm; 
     }
-    * { box-sizing: border-box !important; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #1E293B; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px 10px; }
+    * { 
+      box-sizing: border-box !important; 
+      margin: 0; 
+      padding: 0; 
+    }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      color: #1E293B; 
+      background: #F1F5F9; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      padding: 25px 10px; 
+    }
     
-    .nav-bar { width: 130mm; max-width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
-    .nav-group { display: flex; gap: 4px; }
-    .nav-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #1E293B; }
-    .nav-btn.active { background: #146B69; color: #FFFFFF; border-color: #146B69; }
-    .nav-btn-primary { background: #146B69; color: #FFFFFF; border-color: #146B69; }
-
-    /* Fester Behälter für alle Layouts: Exakt 130mm x 68mm */
-    .ticket {
-      width: 130mm !important;
-      max-width: 130mm !important;
-      height: 68mm !important;
-      max-height: 68mm !important;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    /* Exakt 14 cm × 7 cm */
+    .ticket { 
+      width: 140mm !important; 
+      max-width: 140mm !important; 
+      height: 70mm !important; 
+      max-height: 70mm !important; 
+      background: #FFFFFF; 
+      border: 1px dashed #94A3B8; 
+      position: relative; 
+      padding: 4.5mm 7mm; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: space-between; 
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06); 
       overflow: hidden;
-      position: relative;
     }
-
-    /* LAYOUT 1: BEHÖRDLICHES FORMULAR */
-    .ticket.t-formular {
-      background: #FFFFFF;
-      border: 1.2px solid #1E293B;
-      padding: 4mm 5.5mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      font-size: 6.8pt;
-      line-height: 1.15;
+    
+    .cut-guide { 
+      position: absolute; 
+      top: -7px; 
+      right: 8px; 
+      font-size: 7.5pt; 
+      background: #FFFFFF; 
+      padding: 0 4px; 
+      color: #64748B; 
     }
-    .t-formular .header {
-      display: flex; justify-content: space-between; border-bottom: 1.5px solid #1E293B; padding-bottom: 2px;
+    
+    .header { 
+      display: flex; 
+      justify-content: space-between; 
+      border-bottom: 1.5px solid #146B69; 
+      padding-bottom: 2px; 
     }
-    .t-formular .header-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    .t-formular .info-table {
-      width: 100%; border-collapse: collapse; margin: 2px 0; border: 1px solid #94A3B8;
+    .header h1 { 
+      font-size: 10pt; 
+      font-weight: 800; 
+      color: #146B69; 
+      line-height: 1.1; 
     }
-    .t-formular .info-table td {
-      padding: 1.5px 4px; border: 1px solid #CBD5E1; font-size: 6.5pt;
+    .meta { 
+      text-align: right; 
+      font-size: 6pt; 
+      line-height: 1.25; 
     }
-    .t-formular .subjects-table {
-      width: 100%; border-collapse: collapse; border: 1px solid #94A3B8; margin: 2px 0; font-size: 6.5pt;
+    
+    .student-bar { 
+      display: flex; 
+      background: #F8FAFC; 
+      border: 1px solid #E2E8F0; 
+      border-radius: 4px; 
+      padding: 2.5px 6px; 
+      margin: 2.5px 0; 
+      font-size: 6.8pt; 
+      gap: 12px; 
     }
-    .t-formular .subjects-table th {
-      background: #F1F5F9; border: 1px solid #94A3B8; padding: 1.5px 4px; text-align: left; font-size: 5.8pt; text-transform: uppercase;
+    .student-bar span { 
+      font-weight: 700; 
+      color: #0F172A; 
     }
-    .t-formular .subjects-table td {
-      border: 1px solid #CBD5E1; padding: 1.5px 4px;
+    
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 6.8pt; 
+      margin: 1px 0; 
     }
-    .t-formular .sign-grid {
-      display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; text-align: center; font-size: 5.5pt; margin-top: 1px;
+    th { 
+      text-align: left; 
+      font-size: 5.8pt; 
+      text-transform: uppercase; 
+      color: #64748B; 
+      padding: 1.5px 4px; 
+      border-bottom: 1px solid #CBD5E1; 
     }
-    .t-formular .sign-line { border-top: 1px solid #1E293B; padding-top: 1.5px; }
-
-    /* LAYOUT 2: MODERNES ZERTIFIKAT */
-    .ticket.t-modern-card {
-      background: #FFFFFF;
-      border: 1px solid #CBD5E1;
-      border-left: 6px solid #146B69;
-      padding: 4mm 5.5mm 3.5mm 4.5mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      font-size: 6.8pt;
-      line-height: 1.15;
+    
+    /* Text sitzt höher direkt unter der Tabelle */
+    .statement { 
+      font-size: 6.4pt; 
+      color: #334155; 
+      margin-top: 3px; 
+      line-height: 1.25; 
     }
-    .t-modern-card .head {
-      display: flex; justify-content: space-between; align-items: flex-start;
+    
+    .signatures { 
+      display: grid; 
+      grid-template-columns: 1fr 1.3fr; 
+      gap: 16px; 
+      margin-top: 2px; 
     }
-    .t-modern-card .title { font-size: 9pt; font-weight: 800; color: #146B69; }
-    .t-modern-card .meta-badges {
-      display: flex; gap: 4px; margin: 2px 0; flex-wrap: wrap;
+    .sign-line { 
+      border-top: 1px solid #334155; 
+      padding-top: 2px; 
+      font-size: 5.8pt; 
+      color: #64748B; 
+      text-align: center; 
     }
-    .t-modern-card .badge {
-      background: #E3F0EF; color: #0E4E4D; padding: 1px 4px; border-radius: 3px; font-size: 6pt; font-weight: 600;
+    
+    .actions { 
+      margin-top: 14px; 
+      display: flex; 
+      gap: 8px; 
     }
-    .t-modern-card .reason-badge {
-      background: #FBEDE0; color: #9A3412; padding: 1px 4px; border-radius: 3px; font-size: 6pt; font-weight: 600;
+    .actions button { 
+      background: #146B69; 
+      color: #fff; 
+      border: none; 
+      padding: 7px 18px; 
+      border-radius: 6px; 
+      font-weight: 600; 
+      font-size: 11px; 
+      cursor: pointer; 
     }
-    .t-modern-card .subject-table { width: 100%; border-collapse: collapse; margin: 2px 0; font-size: 6.5pt; }
-    .t-modern-card .subject-table th { font-size: 5.8pt; text-transform: uppercase; color: #64748B; border-bottom: 1.2px solid #146B69; padding: 1.5px 3px; }
-    .t-modern-card .subject-table td { padding: 1.5px 3px; border-bottom: 1px solid #E2E8F0; }
-    .t-modern-card .subject-table td.stunde-col { font-weight: 700; color: #146B69; }
-    .t-modern-card .sign-grid {
-      display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; text-align: center; font-size: 5.5pt; color: #64748B;
+    .actions button.btn-back { 
+      background: #E2E8F0; 
+      color: #1E293B; 
     }
-    .t-modern-card .sign-line { border-top: 1px dashed #94A3B8; padding-top: 1.5px; }
-
-    /* LAYOUT 3: FORMALER BRIEFKOPF */
-    .ticket.t-formal-letter {
-      background: #FAFAF9;
-      border: 1px solid #78716C;
-      padding: 4mm 5.5mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      font-size: 6.8pt;
-      font-family: Georgia, serif;
-      color: #1C1917;
-      line-height: 1.15;
-    }
-    .t-formal-letter .letter-top {
-      display: flex; justify-content: space-between; border-bottom: 1px solid #44403C; padding-bottom: 2px; font-size: 6pt;
-    }
-    .t-formal-letter .letter-heading {
-      text-align: center; font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 1px 0;
-    }
-    .t-formal-letter .details-box {
-      font-size: 6.5pt; line-height: 1.2; background: #F5F5F4; border-left: 2px solid #44403C; padding: 1.5px 4px; margin: 2px 0; font-family: -apple-system, sans-serif;
-    }
-    .t-formal-letter .subject-table { width: 100%; border-collapse: collapse; font-size: 6.5pt; margin: 2px 0; font-family: -apple-system, sans-serif; }
-    .t-formal-letter .subject-table th { border-bottom: 1px solid #78716C; font-size: 5.8pt; text-align: left; padding: 1.5px 3px; }
-    .t-formal-letter .subject-table td { border-bottom: 1px solid #E7E5E4; padding: 1.5px 3px; }
-    .t-formal-letter .letter-statement { font-size: 5.8pt; font-style: italic; line-height: 1.15; }
-    .t-formal-letter .sign-grid {
-      display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; text-align: center; font-size: 5.5pt; font-family: -apple-system, sans-serif;
-    }
-    .t-formal-letter .sign-line { border-top: 1px solid #1C1917; padding-top: 1.5px; }
-
-    @media print {
-      body { background: #FFFFFF; padding: 0; margin: 0; }
-      .nav-bar { display: none !important; }
-      .ticket {
-        box-shadow: none;
-        width: 130mm !important;
-        max-width: 130mm !important;
-        height: 68mm !important;
-        max-height: 68mm !important;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-      }
+    
+    @media print { 
+      body { background: white; padding: 0; margin: 0; } 
+      .actions { display: none !important; } 
+      .ticket { 
+        box-shadow: none; 
+        page-break-inside: avoid; 
+        page-break-after: avoid; 
+      } 
     }
   </style>
 </head>
 <body>
-  <div class="nav-bar">
-    <button class="nav-btn" onclick="if(window.history.length > 1) { window.history.back(); } else { window.close(); }">
-      ✕ Zurück zur App
-    </button>
-    <div class="nav-group">
-      <button class="nav-btn active" id="btn1" onclick="window.setDesign('t-formular', this)">1. Schul-Formular</button>
-      <button class="nav-btn" id="btn2" onclick="window.setDesign('t-modern-card', this)">2. Modernes Kärtchen</button>
-      <button class="nav-btn" id="btn3" onclick="window.setDesign('t-formal-letter', this)">3. Förmlicher Brief</button>
+  <div class="ticket">
+    <div class="cut-guide">✂ Hier ausschneiden (14 × 7 cm)</div>
+    
+    <!-- Oberer Block inkl. Entschuldigungssatz -->
+    <div>
+      <div class="header">
+        <div>
+          <h1>${escapeHtml(displayTitle)}</h1>
+          <p style="font-size:5.8pt; color:#64748B;">${escapeHtml(displaySubtitle)}</p>
+        </div>
+        <div class="meta">
+          <div>Datum: <strong>${escapeHtml(safe.longStr)}</strong></div>
+          <div style="color:#B4432F; font-weight:700;">Frist: bis ${escapeHtml(dl.dlStr)}</div>
+        </div>
+      </div>
+
+      <div class="student-bar">
+        <div>Name: <span>${escapeHtml(r.name || student.name || '–')}</span></div>
+        <div>Klasse: <span>${escapeHtml(r.klasse || student.klasse || '–')}</span></div>
+        <div>Grund: <span>${escapeHtml(displayReason)}</span></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Std.</th>
+            <th>Fach</th>
+            <th style="text-align:right;">Fachlehrer/in</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <p class="statement">${escapeHtml(statementText)}</p>
     </div>
-    <button class="nav-btn nav-btn-primary" onclick="window.print()">
-      🖨 Drucken
-    </button>
+
+    <!-- Unterer Block: Unterschriften -->
+    <div class="signatures">
+      <div class="sign-line">Ort, Datum</div>
+      <div class="sign-line">Unterschrift der Erziehungsberechtigten</div>
+    </div>
   </div>
 
-  <div class="ticket t-formular" id="ticketBox">
-    <div id="contentHolder" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;"></div>
+  <div class="actions">
+    <button class="btn-back" onclick="window.close()">✕ Schließen</button>
+    <button onclick="window.print()">🖨 Drucken</button>
   </div>
 </body>
 </html>`;
@@ -1265,154 +1304,6 @@ function openPrint(r) {
   win.document.open();
   win.document.write(docContent);
   win.document.close();
-
-  const studentNameSafe = escapeHtml(r.name || student.name || '–');
-  const studentKlasseSafe = escapeHtml(r.klasse || student.klasse || '–');
-  const dateLongSafe = escapeHtml(safe.longStr);
-  const deadlineStrSafe = escapeHtml(dl.dlStr);
-  const reasonSafe = escapeHtml(displayReason);
-  const titleSafe = escapeHtml(displayTitle);
-  const subTitleSafe = escapeHtml(displaySubtitle);
-  const statementSafe = escapeHtml(statementText);
-
-  win.setDesign = function(designClass, btn) {
-    const box = win.document.getElementById('ticketBox');
-    const holder = win.document.getElementById('contentHolder');
-    if (!box || !holder) return;
-
-    box.className = 'ticket ' + designClass;
-    win.document.querySelectorAll('.nav-group .nav-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-
-    if (designClass === 't-formular') {
-      holder.innerHTML = `
-        <div>
-          <div class="header">
-            <div>
-              <div class="header-title">${titleSafe}</div>
-              <div style="font-size:5.5pt; color:#64748B;">${subTitleSafe}</div>
-            </div>
-            <div style="text-align:right; font-size:6pt;">
-              Datum: <strong>${dateLongSafe}</strong><br>
-              <span style="color:#B4432F; font-weight:bold;">Frist: ${deadlineStrSafe}</span>
-            </div>
-          </div>
-
-          <table class="info-table">
-            <tr>
-              <td style="width:50%;"><strong>Schüler/in:</strong> ${studentNameSafe}</td>
-              <td style="width:50%;"><strong>Klasse:</strong> ${studentKlasseSafe}</td>
-            </tr>
-            <tr>
-              <td colspan="2"><strong>Grund:</strong> ${reasonSafe}</td>
-            </tr>
-          </table>
-
-          <table class="subjects-table">
-            <thead>
-              <tr>
-                <th style="width:18%;">Stunde</th>
-                <th>Betroffenes Fach</th>
-                <th style="text-align:right;">Fachlehrkraft</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-
-        <div>
-          <p style="font-size:5.8pt; line-height:1.15; color:#334155; margin-bottom:2px;">
-            ${statementSafe}
-          </p>
-          <div class="sign-grid">
-            <div class="sign-line">Ort, Datum</div>
-            <div class="sign-line">Unterschrift der Erziehungsberechtigten</div>
-          </div>
-        </div>
-      `;
-    } else if (designClass === 't-modern-card') {
-      holder.innerHTML = `
-        <div>
-          <div class="head">
-            <div>
-              <div class="title">${titleSafe}</div>
-              <div style="font-size:5.5pt; color:#64748B;">${subTitleSafe}</div>
-            </div>
-            <div style="text-align:right; font-size:6pt; color:#64748B;">
-              Gültig bis: <strong style="color:#B4432F;">${deadlineStrSafe}</strong><br>
-              ${dateLongSafe}
-            </div>
-          </div>
-
-          <div class="meta-badges">
-            <span class="badge">👤 ${studentNameSafe}</span>
-            <span class="badge">🏫 Klasse ${studentKlasseSafe}</span>
-            <span class="reason-badge">ℹ️ ${reasonSafe}</span>
-          </div>
-
-          <table class="subject-table">
-            <thead>
-              <tr>
-                <th style="width:18%;">Zeit</th>
-                <th>Fach</th>
-                <th style="text-align:right;">Lehrkraft</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-
-        <div>
-          <p style="font-size:5.8pt; color:#475569; line-height:1.15; margin-bottom:2.5px;">
-            ${statementSafe}
-          </p>
-          <div class="sign-grid">
-            <div class="sign-line">Ort, Datum</div>
-            <div class="sign-line">Unterschrift Erziehungsberechtigte/r</div>
-          </div>
-        </div>
-      `;
-    } else {
-      holder.innerHTML = `
-        <div>
-          <div class="letter-top">
-            <span>KGS Bad Lauterberg</span>
-            <span>${dateLongSafe}</span>
-          </div>
-
-          <div class="letter-heading">${titleSafe}</div>
-
-          <div class="details-box">
-            <strong>Schüler/in:</strong> ${studentNameSafe} (Klasse ${studentKlasseSafe})<br>
-            <strong>Begründung:</strong> ${reasonSafe}
-          </div>
-
-          <table class="subject-table">
-            <thead>
-              <tr>
-                <th style="width:18%;">Std.</th>
-                <th>Fach</th>
-                <th style="text-align:right;">Lehrkraft</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-
-        <div>
-          <p class="letter-statement" style="margin-bottom:2.5px;">
-            Sehr geehrte Damen und Herren, ${statementSafe}
-          </p>
-          <div class="sign-grid">
-            <div class="sign-line">Ort, Datum</div>
-            <div class="sign-line">Unterschrift Erziehungsberechtigte/r</div>
-          </div>
-        </div>
-      `;
-    }
-  };
-
-  win.setDesign('t-formular', win.document.getElementById('btn1'));
 }
 
 /* Kalender-Navigation */
