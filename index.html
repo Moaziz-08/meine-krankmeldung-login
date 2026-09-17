@@ -189,7 +189,7 @@
       background: var(--canvas);
     }
 
-    /* Schnellauswahl Kalender Pop-Up */
+    /* Schnellauswahl Kalender */
     .picker-calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -938,7 +938,7 @@ stuKlasseInp.addEventListener('input', () => {
 
 /* Eindeutige Grund-Ermittlung */
 function resolveReasonText(sickList, userExplicitReason = '') {
-  if (userExplicitReason && userExplicitReason !== 'Verspätung / triftiger Grund') {
+  if (userExplicitReason && userExplicitReason !== 'Verspätung / triftiger Grund' && !userExplicitReason.includes('triftiger Grund')) {
     return userExplicitReason;
   }
   const hasPassiv = sickList.some(x => x.status === 'passiv' || (x.fach && x.fach.toLowerCase().includes('sport')));
@@ -1011,7 +1011,6 @@ function renderReminders() {
     card.style.borderColor = dl.color;
     card.style.background = 'rgba(255,255,255,0.9)';
     
-    // Automatisch sauber auflösen
     const computedReason = resolveReasonText(r.items || [], r.reason);
 
     card.innerHTML = `
@@ -1066,7 +1065,7 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Druck-Vorschau */
+/* Druck-Vorschau (Exakt 140 mm Breite x 70 mm Höhe) */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -1086,15 +1085,15 @@ function openPrint(r) {
   `).join('');
 
   let displayTitle = isPassiv ? 'Sportbefreiung' : 'Entschuldigung';
-  let displaySubtitle = isPassiv ? 'Befreiung von der aktiven sportlichen Teilnahme' : 'Vorlage für Lehrkräfte';
+  let displaySubtitle = isPassiv ? 'Befreiung von der aktiven Teilnahme' : 'Vorlage für Lehrkräfte';
   
   let displayReason = resolveReasonText(validItems, r.reason);
   if (isPassiv) displayReason = 'Sportbefreiung (anwesend, nicht aktiv)';
   if (r.ankunft) displayReason += ` (Ankunft: ${r.ankunft} Uhr)`;
 
   let statementText = isPassiv
-    ? 'Ich bitte zu entschuldigen, dass mein Sohn / meine Tochter am oben aufgeführten Unterricht zwar anwesend war, jedoch aus gesundheitlichen Gründen nicht aktiv am praktischen Sportunterricht teilnehmen konnte.'
-    : 'Ich bitte, das Fehlen / die Verspätung meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus dem genannten triftigen Grund zu entschuldigen.';
+    ? 'Ich bitte zu entschuldigen, dass mein Kind am oben aufgeführten Unterricht anwesend war, aber aus gesundheitlichen Gründen nicht aktiv teilnehmen konnte.'
+    : 'Ich bitte, das Fehlen / die Verspätung meines Kindes im oben aufgeführten Unterricht aus dem genannten triftigen Grund zu entschuldigen.';
 
   const docContent = `<!DOCTYPE html>
 <html lang="de">
@@ -1103,71 +1102,140 @@ function openPrint(r) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(displayTitle)} drucken</title>
   <style>
+    @page {
+      size: 140mm 70mm;
+      margin: 0;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #1E293B; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px 10px; }
     
-    .nav-bar { width: 100%; max-width: 140mm; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-wrap: wrap; }
-    .nav-group { display: flex; gap: 6px; }
-    .nav-btn { padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #1E293B; }
+    .nav-bar { width: 140mm; max-width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+    .nav-group { display: flex; gap: 4px; }
+    .nav-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #1E293B; }
     .nav-btn.active { background: #146B69; color: #FFFFFF; border-color: #146B69; }
     .nav-btn-primary { background: #146B69; color: #FFFFFF; border-color: #146B69; }
 
+    /* Fester Behälter für alle Layouts: Exakt 140mm x 70mm */
     .ticket {
       width: 140mm;
-      height: 100mm;
+      height: 70mm;
+      max-height: 70mm;
       box-shadow: 0 4px 14px rgba(0,0,0,0.08);
       overflow: hidden;
       position: relative;
     }
 
-    /* LAYOUT 1 */
+    /* LAYOUT 1: BEHÖRDLICHES FORMULAR (Kompakt auf 70mm) */
     .ticket.t-formular {
-      background: #FFFFFF; border: 1.5px solid #1E293B; padding: 7mm 9mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt;
+      background: #FFFFFF;
+      border: 1.2px solid #1E293B;
+      padding: 4.5mm 6mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 7pt;
+      line-height: 1.2;
     }
-    .t-formular .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1E293B; padding-bottom: 3px; }
-    .t-formular .header-title { font-size: 11pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    .t-formular .info-table { width: 100%; border-collapse: collapse; margin: 4px 0; border: 1px solid #94A3B8; }
-    .t-formular .info-table td { padding: 3px 6px; border: 1px solid #CBD5E1; font-size: 7.5pt; }
-    .t-formular .subjects-table { width: 100%; border-collapse: collapse; border: 1px solid #94A3B8; margin: 3px 0; font-size: 7.5pt; }
-    .t-formular .subjects-table th { background: #F1F5F9; border: 1px solid #94A3B8; padding: 2px 6px; text-align: left; font-size: 6.5pt; text-transform: uppercase; }
-    .t-formular .subjects-table td { border: 1px solid #CBD5E1; padding: 3px 6px; }
-    .t-formular .sign-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 20px; text-align: center; font-size: 6.5pt; margin-top: 2px; }
-    .t-formular .sign-line { border-top: 1px solid #1E293B; padding-top: 2px; }
+    .t-formular .header {
+      display: flex; justify-content: space-between; border-bottom: 1.5px solid #1E293B; padding-bottom: 2px;
+    }
+    .t-formular .header-title { font-size: 9.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    .t-formular .info-table {
+      width: 100%; border-collapse: collapse; margin: 2px 0; border: 1px solid #94A3B8;
+    }
+    .t-formular .info-table td {
+      padding: 2px 4px; border: 1px solid #CBD5E1; font-size: 6.8pt;
+    }
+    .t-formular .subjects-table {
+      width: 100%; border-collapse: collapse; border: 1px solid #94A3B8; margin: 2px 0; font-size: 6.8pt;
+    }
+    .t-formular .subjects-table th {
+      background: #F1F5F9; border: 1px solid #94A3B8; padding: 1.5px 4px; text-align: left; font-size: 6pt; text-transform: uppercase;
+    }
+    .t-formular .subjects-table td {
+      border: 1px solid #CBD5E1; padding: 2px 4px;
+    }
+    .t-formular .sign-grid {
+      display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; text-align: center; font-size: 5.8pt; margin-top: 1px;
+    }
+    .t-formular .sign-line { border-top: 1px solid #1E293B; padding-top: 1.5px; }
 
-    /* LAYOUT 2 */
+    /* LAYOUT 2: MODERNES ZERTIFIKAT (Kompakt auf 70mm) */
     .ticket.t-modern-card {
-      background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 7px solid #146B69; padding: 8mm 9mm 7mm 7mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      border-left: 6px solid #146B69;
+      padding: 4.5mm 6mm 4mm 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 7pt;
+      line-height: 1.2;
     }
-    .t-modern-card .head { display: flex; justify-content: space-between; align-items: flex-start; }
-    .t-modern-card .title { font-size: 11pt; font-weight: 800; color: #146B69; }
-    .t-modern-card .meta-badges { display: flex; gap: 6px; margin: 4px 0; flex-wrap: wrap; }
-    .t-modern-card .badge { background: #E3F0EF; color: #0E4E4D; padding: 2px 7px; border-radius: 4px; font-size: 7pt; font-weight: 600; }
-    .t-modern-card .reason-badge { background: #FBEDE0; color: #9A3412; padding: 2px 7px; border-radius: 4px; font-size: 7pt; font-weight: 600; }
-    .t-modern-card .subject-table { width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 7.5pt; }
-    .t-modern-card .subject-table th { font-size: 6.5pt; text-transform: uppercase; color: #64748B; border-bottom: 1.5px solid #146B69; padding: 2px 4px; }
-    .t-modern-card .subject-table td { padding: 3px 4px; border-bottom: 1px solid #E2E8F0; }
+    .t-modern-card .head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .t-modern-card .title { font-size: 9.5pt; font-weight: 800; color: #146B69; }
+    .t-modern-card .meta-badges {
+      display: flex; gap: 4px; margin: 2px 0; flex-wrap: wrap;
+    }
+    .t-modern-card .badge {
+      background: #E3F0EF; color: #0E4E4D; padding: 1px 5px; border-radius: 3px; font-size: 6.3pt; font-weight: 600;
+    }
+    .t-modern-card .reason-badge {
+      background: #FBEDE0; color: #9A3412; padding: 1px 5px; border-radius: 3px; font-size: 6.3pt; font-weight: 600;
+    }
+    .t-modern-card .subject-table { width: 100%; border-collapse: collapse; margin: 2px 0; font-size: 6.8pt; }
+    .t-modern-card .subject-table th { font-size: 6pt; text-transform: uppercase; color: #64748B; border-bottom: 1.2px solid #146B69; padding: 1.5px 3px; }
+    .t-modern-card .subject-table td { padding: 2px 3px; border-bottom: 1px solid #E2E8F0; }
     .t-modern-card .subject-table td.stunde-col { font-weight: 700; color: #146B69; }
-    .t-modern-card .sign-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 20px; text-align: center; font-size: 6.5pt; color: #64748B; }
-    .t-modern-card .sign-line { border-top: 1px dashed #94A3B8; padding-top: 2px; }
-
-    /* LAYOUT 3 */
-    .ticket.t-formal-letter {
-      background: #FAFAF9; border: 1px solid #78716C; padding: 8mm 10mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt; font-family: Georgia, serif; color: #1C1917;
+    .t-modern-card .sign-grid {
+      display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; text-align: center; font-size: 5.8pt; color: #64748B;
     }
-    .t-formal-letter .letter-top { display: flex; justify-content: space-between; border-bottom: 1px solid #44403C; padding-bottom: 3px; font-size: 7pt; }
-    .t-formal-letter .letter-heading { text-align: center; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 2px 0; }
-    .t-formal-letter .details-box { font-size: 7.5pt; line-height: 1.4; background: #F5F5F4; border-left: 2px solid #44403C; padding: 3px 7px; margin: 3px 0; font-family: -apple-system, sans-serif; }
-    .t-formal-letter .subject-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin: 2px 0; font-family: -apple-system, sans-serif; }
-    .t-formal-letter .subject-table th { border-bottom: 1px solid #78716C; font-size: 6.5pt; text-align: left; padding: 2px 4px; }
-    .t-formal-letter .subject-table td { border-bottom: 1px solid #E7E5E4; padding: 3px 4px; }
-    .t-formal-letter .letter-statement { font-size: 7pt; font-style: italic; line-height: 1.3; }
-    .t-formal-letter .sign-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; text-align: center; font-size: 6.5pt; font-family: -apple-system, sans-serif; }
-    .t-formal-letter .sign-line { border-top: 1px solid #1C1917; padding-top: 2px; }
+    .t-modern-card .sign-line { border-top: 1px dashed #94A3B8; padding-top: 1.5px; }
+
+    /* LAYOUT 3: FORMALER BRIEFKOPF (Kompakt auf 70mm) */
+    .ticket.t-formal-letter {
+      background: #FAFAF9;
+      border: 1px solid #78716C;
+      padding: 4.5mm 6mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 7pt;
+      font-family: Georgia, serif;
+      color: #1C1917;
+      line-height: 1.2;
+    }
+    .t-formal-letter .letter-top {
+      display: flex; justify-content: space-between; border-bottom: 1px solid #44403C; padding-bottom: 2px; font-size: 6.2pt;
+    }
+    .t-formal-letter .letter-heading {
+      text-align: center; font-size: 9.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 1.5px 0;
+    }
+    .t-formal-letter .details-box {
+      font-size: 6.8pt; line-height: 1.25; background: #F5F5F4; border-left: 2px solid #44403C; padding: 2px 5px; margin: 2px 0; font-family: -apple-system, sans-serif;
+    }
+    .t-formal-letter .subject-table { width: 100%; border-collapse: collapse; font-size: 6.8pt; margin: 2px 0; font-family: -apple-system, sans-serif; }
+    .t-formal-letter .subject-table th { border-bottom: 1px solid #78716C; font-size: 6pt; text-align: left; padding: 1.5px 3px; }
+    .t-formal-letter .subject-table td { border-bottom: 1px solid #E7E5E4; padding: 2px 3px; }
+    .t-formal-letter .letter-statement { font-size: 6.2pt; font-style: italic; line-height: 1.2; }
+    .t-formal-letter .sign-grid {
+      display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; text-align: center; font-size: 5.8pt; font-family: -apple-system, sans-serif;
+    }
+    .t-formal-letter .sign-line { border-top: 1px solid #1C1917; padding-top: 1.5px; }
 
     @media print {
-      body { background: #FFFFFF; padding: 0; }
+      body { background: #FFFFFF; padding: 0; margin: 0; }
       .nav-bar { display: none !important; }
-      .ticket { box-shadow: none; width: 140mm; height: 100mm; }
+      .ticket {
+        box-shadow: none;
+        width: 140mm !important;
+        height: 70mm !important;
+        max-height: 70mm !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
     }
   </style>
 </head>
@@ -1220,9 +1288,9 @@ function openPrint(r) {
           <div class="header">
             <div>
               <div class="header-title">${titleSafe}</div>
-              <div style="font-size:6.5pt; color:#64748B;">${subTitleSafe}</div>
+              <div style="font-size:5.8pt; color:#64748B;">${subTitleSafe}</div>
             </div>
-            <div style="text-align:right; font-size:7pt;">
+            <div style="text-align:right; font-size:6.2pt;">
               Datum: <strong>${dateLongSafe}</strong><br>
               <span style="color:#B4432F; font-weight:bold;">Frist: ${deadlineStrSafe}</span>
             </div>
@@ -1251,7 +1319,7 @@ function openPrint(r) {
         </div>
 
         <div>
-          <p style="font-size:6.8pt; line-height:1.3; color:#334155; margin-bottom:4px;">
+          <p style="font-size:6pt; line-height:1.2; color:#334155; margin-bottom:2.5px;">
             ${statementSafe}
           </p>
           <div class="sign-grid">
@@ -1266,9 +1334,9 @@ function openPrint(r) {
           <div class="head">
             <div>
               <div class="title">${titleSafe}</div>
-              <div style="font-size:6.5pt; color:#64748B;">${subTitleSafe}</div>
+              <div style="font-size:5.8pt; color:#64748B;">${subTitleSafe}</div>
             </div>
-            <div style="text-align:right; font-size:6.8pt; color:#64748B;">
+            <div style="text-align:right; font-size:6.2pt; color:#64748B;">
               Gültig bis: <strong style="color:#B4432F;">${deadlineStrSafe}</strong><br>
               ${dateLongSafe}
             </div>
@@ -1280,22 +1348,20 @@ function openPrint(r) {
             <span class="reason-badge">ℹ️ ${reasonSafe}</span>
           </div>
 
-          <div style="max-height:46mm; overflow:hidden;">
-            <table class="subject-table">
-              <thead>
-                <tr>
-                  <th style="width:20%;">Zeit</th>
-                  <th>Fach</th>
-                  <th style="text-align:right;">Lehrkraft</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
+          <table class="subject-table">
+            <thead>
+              <tr>
+                <th style="width:18%;">Zeit</th>
+                <th>Fach</th>
+                <th style="text-align:right;">Lehrkraft</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
         </div>
 
         <div>
-          <p style="font-size:6.8pt; color:#475569; line-height:1.3; margin-bottom:5px;">
+          <p style="font-size:6pt; color:#475569; line-height:1.2; margin-bottom:3px;">
             ${statementSafe}
           </p>
           <div class="sign-grid">
@@ -1332,7 +1398,7 @@ function openPrint(r) {
         </div>
 
         <div>
-          <p class="letter-statement" style="margin-bottom:6px;">
+          <p class="letter-statement" style="margin-bottom:3.5px;">
             Sehr geehrte Damen und Herren, ${statementSafe}
           </p>
           <div class="sign-grid">
@@ -1769,7 +1835,6 @@ function openProofDetail(p) {
   document.getElementById('detailDate').textContent = `${p.dateStr}`;
   document.getElementById('detailStudent').textContent = `${p.name || '–'} (Klasse ${p.klasse || '–'})`;
   
-  // Exakte Erkennung für Sportbefreiung
   let finalReasonDisplay = p.reason;
   const hasSport = (p.items || []).some(x => x.status === 'passiv' || (x.fach && x.fach.toLowerCase().includes('sport')));
   if (hasSport && (!finalReasonDisplay || finalReasonDisplay.includes('Verspätung') || finalReasonDisplay.includes('triftiger Grund'))) {
