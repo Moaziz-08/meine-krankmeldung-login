@@ -189,6 +189,43 @@
       background: var(--canvas);
     }
 
+    /* Schnellauswahl Kalender Pop-Up */
+    .picker-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .picker-day-head {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--mute);
+      padding: 4px 0;
+    }
+    .picker-day-btn {
+      font-size: 0.75rem;
+      padding: 6px 0;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: none;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .picker-day-btn:hover {
+      background: var(--canvas);
+      border-color: var(--line);
+    }
+    .picker-day-btn.active {
+      background: var(--brand);
+      color: #fff;
+      font-weight: 700;
+    }
+    .picker-day-btn.empty {
+      pointer-events: none;
+      opacity: 0;
+    }
+
     .modal-backdrop { position: fixed; inset: 0; background: rgba(27,36,48,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
     .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 580px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); max-height: 90vh; overflow-y: auto; }
   </style>
@@ -340,11 +377,14 @@
   <!-- ================= TAB: FEHLTAGE & PLAN ================= -->
   <section id="panel-history" class="hidden">
     <div class="card flex-between" style="flex-wrap:wrap; gap:0.5rem;">
-      <div style="display:flex; align-items:center; gap:0.4rem;">
+      <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
         <button id="prevWeekBtn" class="btn-sub">◀</button>
         <button id="currentWeekBtn" class="btn-sub" style="color:var(--brand);">Heute</button>
         <button id="nextWeekBtn" class="btn-sub">▶</button>
-        <span id="weekRangeLabel" style="font-size:0.875rem; font-weight:600; margin-left:0.5rem;">–</span>
+        <button id="openDatePickerBtn" class="btn-sub" style="display:flex; align-items:center; gap:0.3rem;">
+          <span>📅 Datum wählen</span>
+        </button>
+        <span id="weekRangeLabel" style="font-size:0.875rem; font-weight:600; margin-left:0.4rem;">–</span>
       </div>
       <button id="openArchiveBtn" class="btn-sub">📁 Nachweise-Ordner</button>
     </div>
@@ -390,6 +430,32 @@
     </div>
   </section>
 
+</div>
+
+<!-- Modal: Schnellauswahl Monat & Tag -->
+<div id="datePickerModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:340px;">
+    <div class="flex-between" style="margin-bottom:0.75rem;">
+      <h3 style="font-size:0.95rem; font-weight:700;">Datum & Monat wählen</h3>
+      <button id="closeDatePickerModalBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+    </div>
+    
+    <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+      <select id="pickerMonthSelect" class="input-box" style="flex:2; padding:0.35rem 0.5rem; font-size:0.8rem;"></select>
+      <select id="pickerYearSelect" class="input-box" style="flex:1; padding:0.35rem 0.5rem; font-size:0.8rem;"></select>
+    </div>
+
+    <div class="picker-calendar">
+      <div class="picker-day-head">Mo</div>
+      <div class="picker-day-head">Di</div>
+      <div class="picker-day-head">Mi</div>
+      <div class="picker-day-head">Do</div>
+      <div class="picker-day-head">Fr</div>
+      <div class="picker-day-head">Sa</div>
+      <div class="picker-day-head">So</div>
+    </div>
+    <div id="pickerDaysGrid" class="picker-calendar" style="margin-top:2px;"></div>
+  </div>
 </div>
 
 <!-- Modal: Auth / Sync -->
@@ -706,6 +772,7 @@ function compressImage(file) {
    State & App-Logik
 --------------------------------------------------------------------- */
 const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+const MONTH_NAMES = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const LS_SCHEDULE = 'krankmelden_stundenplan';
 const LS_STUDENT = 'krankmelden_schueler';
 const LS_SETTINGS = 'krankmelden_settings';
@@ -982,7 +1049,7 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Druck-Vorschau mit 3 komplett unterschiedlichen, professionellen Layouts */
+/* Druck-Vorschau mit den 3 professionellen Layouts */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -1302,6 +1369,7 @@ function openPrint(r) {
   win.setDesign('t-formular', win.document.getElementById('btn1'));
 }
 
+/* Kalender-Navigation & Wochenberechnung */
 let curMonday = new Date();
 curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1));
 curMonday.setHours(12,0,0,0);
@@ -1312,6 +1380,87 @@ document.getElementById('currentWeekBtn').addEventListener('click', () => {
   curMonday = new Date(); curMonday.setDate(curMonday.getDate() - (curMonday.getDay() === 0 ? 6 : curMonday.getDay() - 1)); curMonday.setHours(12,0,0,0);
   renderUntisWeek(); 
 });
+
+/* Datumswahl Modal (Schnellauswahl für Monat & Tag) */
+const datePickerModal = document.getElementById('datePickerModal');
+const pickerMonthSelect = document.getElementById('pickerMonthSelect');
+const pickerYearSelect = document.getElementById('pickerYearSelect');
+const pickerDaysGrid = document.getElementById('pickerDaysGrid');
+
+// Monate & Jahre befüllen
+MONTH_NAMES.forEach((m, idx) => {
+  const opt = document.createElement('option');
+  opt.value = idx;
+  opt.textContent = m;
+  pickerMonthSelect.appendChild(opt);
+});
+
+const currentYear = new Date().getFullYear();
+for (let y = currentYear - 2; y <= currentYear + 3; y++) {
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  pickerYearSelect.appendChild(opt);
+}
+
+document.getElementById('openDatePickerBtn').addEventListener('click', () => {
+  datePickerModal.classList.remove('hidden');
+  pickerYearSelect.value = curMonday.getFullYear();
+  pickerMonthSelect.value = curMonday.getMonth();
+  renderDatePickerCalendar();
+});
+
+document.getElementById('closeDatePickerModalBtn').addEventListener('click', () => {
+  datePickerModal.classList.add('hidden');
+});
+
+pickerMonthSelect.addEventListener('change', renderDatePickerCalendar);
+pickerYearSelect.addEventListener('change', renderDatePickerCalendar);
+
+function renderDatePickerCalendar() {
+  pickerDaysGrid.innerHTML = '';
+  const selYear = parseInt(pickerYearSelect.value, 10);
+  const selMonth = parseInt(pickerMonthSelect.value, 10);
+
+  const firstDay = new Date(selYear, selMonth, 1);
+  let startingDayOfWeek = firstDay.getDay() - 1; // Mo = 0
+  if (startingDayOfWeek === -1) startingDayOfWeek = 6;
+
+  const totalDays = new Date(selYear, selMonth + 1, 0).getDate();
+
+  // Leere Vorlauf-Tage
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'picker-day-btn empty';
+    pickerDaysGrid.appendChild(emptyEl);
+  }
+
+  // Tage des Monats
+  for (let day = 1; day <= totalDays; day++) {
+    const dayBtn = document.createElement('button');
+    dayBtn.type = 'button';
+    dayBtn.className = 'picker-day-btn';
+    dayBtn.textContent = day;
+
+    const targetDate = new Date(selYear, selMonth, day, 12, 0, 0);
+    const targetMonday = new Date(targetDate);
+    const dayIndex = targetMonday.getDay();
+    targetMonday.setDate(targetMonday.getDate() - (dayIndex === 0 ? 6 : dayIndex - 1));
+    targetMonday.setHours(12, 0, 0, 0);
+
+    if (toIsoDate(targetMonday) === toIsoDate(curMonday)) {
+      dayBtn.classList.add('active');
+    }
+
+    dayBtn.addEventListener('click', () => {
+      curMonday = targetMonday;
+      datePickerModal.classList.add('hidden');
+      renderUntisWeek();
+    });
+
+    pickerDaysGrid.appendChild(dayBtn);
+  }
+}
 
 function renderUntisWeek() {
   const grid = document.getElementById('untisGrid');
@@ -1648,7 +1797,7 @@ document.getElementById('deleteProofDetailBtn').addEventListener('click', () => 
 
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor – Jetzt mit manuellem Speichern */
+/* Schedule Editor */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1698,7 +1847,6 @@ function renderScheduleEditor() {
         <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
       `;
 
-      // Ändert nur die Daten im Speicher, triggert KEIN automatisches Neurendern beim Tippen
       row.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('input', (e) => {
           s[e.target.dataset.field] = e.target.value;
