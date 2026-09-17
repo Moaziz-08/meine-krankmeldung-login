@@ -278,7 +278,7 @@
       </div>
     </div>
 
-    <!-- Verspätungsangaben inklusive Option für schriftliche Entschuldigung -->
+    <!-- Verspätungsangaben -->
     <div id="verspaetungCard" class="card hidden">
       <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Verspätungsangaben</h2>
       <div class="grid-2" style="margin-bottom:0.75rem;">
@@ -287,8 +287,8 @@
           <input id="ankunftszeit" type="time" class="input-box">
         </div>
         <div>
-          <label class="field-label" for="verspaetungGrund">Grund (optional)</label>
-          <input id="verspaetungGrund" type="text" class="input-box" placeholder="z. B. Bus verpasst">
+          <label class="field-label" for="verspaetungGrund">Grund (z. B. Bus verpasst, Arzt)</label>
+          <input id="verspaetungGrund" type="text" class="input-box" placeholder="z. B. Busverspätung">
         </div>
       </div>
 
@@ -912,7 +912,6 @@ apiEndpointInp.addEventListener('input', () => {
   saveSettings(settings);
 });
 
-/* Erinnerungen nur bei krank, passiv oder verspaetung (mit schriftlicher Entschuldigung) anlegen */
 function syncReminderForDate(iso, dayName) {
   const subs = schedule[dayName] || [];
   const sick = [];
@@ -1137,7 +1136,6 @@ document.getElementById('currentWeekBtn').addEventListener('click', () => {
   renderUntisWeek(); 
 });
 
-/* Raster mit Unterscheidung nach Verspätungsarten und deren Farben */
 function renderUntisWeek() {
   const grid = document.getElementById('untisGrid');
   grid.innerHTML = '';
@@ -1306,18 +1304,27 @@ document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
   openPrint({ isoDate: activeDay.iso, items });
 });
 
-/* Senden */
+/* Senden mit ausführlicher Verspätungs- & Krankmeldung */
 document.getElementById('sendBtn').addEventListener('click', () => {
-  student.name = document.getElementById('stuName').value.trim();
-  student.klasse = document.getElementById('stuKlasse').value.trim();
+  const sName = document.getElementById('stuName').value.trim();
+  const sKlasse = document.getElementById('stuKlasse').value.trim();
+  
+  if (!sName || !sKlasse) {
+    return alert("Bitte Name und Klasse eintragen.");
+  }
+
+  student.name = sName;
+  student.klasse = sKlasse;
   saveStudent(student);
 
   const day = daySelect.value;
   const nowD = new Date();
   let diff = (['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'].indexOf(day) + 1) - nowD.getDay();
   if (diff < 0) diff += 7;
-  const target = new Date(nowD); target.setDate(nowD.getDate() + diff);
+  const target = new Date(nowD); 
+  target.setDate(nowD.getDate() + diff);
   const iso = toIsoDate(target);
+  const dateStr = target.toLocaleDateString('de-DE');
 
   const checked = [...document.querySelectorAll('.subj-check:checked')].map(c => c.dataset.id);
   const chosen = (schedule[day] || []).filter(s => checked.includes(s.id));
@@ -1325,23 +1332,69 @@ document.getElementById('sendBtn').addEventListener('click', () => {
 
   const meldeArt = document.querySelector('input[name="meldeArt"]:checked').value;
   let statusToSave = meldeArt;
+  const needProof = document.querySelector('input[name="verspaetungNeedProof"]:checked').value === 'ja';
 
   if (meldeArt === 'verspaetung') {
-    const needProof = document.querySelector('input[name="verspaetungNeedProof"]:checked').value === 'ja';
     statusToSave = needProof ? 'verspaetung' : 'verspaetung_ohne';
   }
 
   chosen.forEach(s => { statusLog[`${iso}|${s.id}`] = statusToSave; });
   saveStatusLog(statusLog);
 
-  // Erinnerung wird nur erzeugt, wenn Krankmeldung oder Verspätung MIT Entschuldigung gewählt ist
   if (statusToSave === 'krank' || statusToSave === 'verspaetung') {
     syncReminderForDate(iso, day);
   }
 
-  const emails = chosen.map(s => s.email).join(',');
-  const sub = encodeURIComponent(`Meldung ${student.name} (${student.klasse}) – ${target.toLocaleDateString('de-DE')}`);
-  const body = encodeURIComponent(`Sehr geehrte Damen und Herren,\n\nich möchte hiermit mein Fehlen / meine Verspätung ankündigen.\n\nMit freundlichen Grüßen\n${student.name}`);
+  const emails = chosen.map(s => s.email).filter(Boolean).join(',');
+  const faecherList = chosen.map(s => `${s.fach} (${s.stunde || '–'}. Std.)`).join(', ');
+
+  let sub = '';
+  let body = '';
+
+  if (meldeArt === 'verspaetung') {
+    const ankunft = document.getElementById('ankunftszeit').value;
+    const grund = document.getElementById('verspaetungGrund').value.trim();
+
+    sub = encodeURIComponent(`Verspätung: ${student.name} (Klasse ${student.klasse}) – ${dateStr}`);
+
+    let textAnkunft = ankunft ? `gegen ca. ${ankunft} Uhr` : 'im Laufe des Vormittags';
+    let textGrund = grund ? `\nGrund für die Verspätung: ${grund}` : '';
+    let textProof = needProof 
+      ? `\nEine schriftliche Entschuldigung der Erziehungsberechtigten reiche ich schnellstmöglich nach.`
+      : '';
+
+    body = encodeURIComponent(
+`Sehr geehrte Damen und Herren,
+
+hiermit möchte ich ankündigen, dass ich (${student.name}, Klasse ${student.klasse}) mich am ${dateStr} leider verspäten werde und nicht pünktlich zum Unterricht erscheinen kann.
+
+Betroffene Fächer: ${faecherList}
+Voraussichtliche Ankunft: ${textAnkunft}${textGrund}${textProof}
+
+Ich bitte, die Unannehmlichkeiten zu entschuldigen.
+
+Mit freundlichen Grüßen
+${student.name}
+Klasse ${student.klasse}`
+    );
+
+  } else {
+    sub = encodeURIComponent(`Krankmeldung: ${student.name} (Klasse ${student.klasse}) – ${dateStr}`);
+    body = encodeURIComponent(
+`Sehr geehrte Damen und Herren,
+
+hiermit melde ich mich (${student.name}, Klasse ${student.klasse}) für den heutigen Schultag (${dateStr}) krankheitsbedingt ab.
+
+Betroffene Fächer: ${faecherList}
+
+Eine schriftliche Entschuldigung reiche ich schnellstmöglich nach der Genesung nach.
+
+Mit freundlichen Grüßen
+${student.name}
+Klasse ${student.klasse}`
+    );
+  }
+
   window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
 });
 
