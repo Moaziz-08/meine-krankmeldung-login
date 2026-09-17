@@ -563,6 +563,7 @@ try {
   console.warn("Firebase Offline-Modus:", e);
 }
 
+/* Wichtig: Ohne { merge: true }, damit gelöschte Einträge (z.B. StatusLog oder Nachweise) korrekt in der Cloud gelöscht werden */
 function syncWithCloud() {
   if (isSyncingFromCloud) return;
 
@@ -578,7 +579,7 @@ function syncWithCloud() {
       statusLog,
       proofsArchive,
       lastUpdated: ts
-    }, { merge: true }).catch(err => console.error("Cloud Sync Fehler:", err));
+    }).catch(err => console.error("Cloud Sync Fehler:", err));
   }
 }
 
@@ -592,35 +593,29 @@ function applyCloudData(data) {
   isSyncingFromCloud = true;
 
   try {
-    if (data.schedule) { 
-      schedule = data.schedule; 
-      localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); 
-      renderScheduleEditor(); 
-    }
-    if (data.student) { 
-      student = data.student; 
-      localStorage.setItem(LS_STUDENT, JSON.stringify(student)); 
-      document.getElementById('stuName').value = student.name || ''; 
-      document.getElementById('stuKlasse').value = student.klasse || ''; 
-    }
-    if (data.settings) { 
-      settings = data.settings; 
-      localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); 
-      document.getElementById('apiEndpoint').value = settings.apiEndpoint || ''; 
-    }
-    if (data.reminders) { 
-      reminders = data.reminders; 
-      localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); 
-      renderReminders(); 
-    }
-    if (data.statusLog) { 
-      statusLog = data.statusLog; 
-      localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); 
-    }
-    if (data.proofsArchive) {
-      proofsArchive = data.proofsArchive;
-      localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
-    }
+    schedule = data.schedule || structuredClone(DEFAULT_SCHEDULE);
+    localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule));
+    renderScheduleEditor();
+
+    student = data.student || { name: '', klasse: '' };
+    localStorage.setItem(LS_STUDENT, JSON.stringify(student));
+    document.getElementById('stuName').value = student.name || '';
+    document.getElementById('stuKlasse').value = student.klasse || '';
+
+    settings = data.settings || { apiEndpoint: '' };
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+    document.getElementById('apiEndpoint').value = settings.apiEndpoint || '';
+
+    reminders = data.reminders || [];
+    localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders));
+    renderReminders();
+
+    statusLog = data.statusLog || {};
+    localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog));
+
+    proofsArchive = data.proofsArchive || [];
+    localStorage.setItem(LS_PROOFS, JSON.stringify(proofsArchive));
+
     renderSubjects();
     renderUntisWeek();
   } finally {
@@ -980,7 +975,7 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Zuverlässiges Druck-Popup mit Schließen-/Zurück-Leiste */
+/* Zuverlässiges Druck-Popup mit Design-Templates & Zurück-Button */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -989,9 +984,9 @@ function openPrint(r) {
   const dl = getDeadlineInfo(r.isoDate);
   const rows = (r.items || []).filter(i => i.status !== 'entfaellt').map(i => `
     <tr>
-      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; font-weight:bold; color:#146B69;">${escapeHtml(i.stunde||'–')}. Std.</td>
+      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; font-weight:bold;">${escapeHtml(i.stunde||'–')}. Std.</td>
       <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0;">${escapeHtml(i.fach)}</td>
-      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; text-align:right; color:#64748B;">${escapeHtml(i.lehrer||'')}</td>
+      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; text-align:right;">${escapeHtml(i.lehrer||'')}</td>
     </tr>
   `).join('');
 
@@ -1013,16 +1008,23 @@ function openPrint(r) {
       align-items: center;
       margin-bottom: 15px;
       gap: 10px;
+      flex-wrap: wrap;
     }
+    .nav-group { display: flex; gap: 6px; }
     .nav-btn {
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 8px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       border: 1px solid #CBD5E1;
       background: #FFFFFF;
       color: #1E293B;
+    }
+    .nav-btn.active {
+      background: #146B69;
+      color: #FFFFFF;
+      border-color: #146B69;
     }
     .nav-btn-primary {
       background: #146B69;
@@ -1030,11 +1032,39 @@ function openPrint(r) {
       border-color: #146B69;
     }
 
+    /* Template 1: Modern & Clean (Standard) */
+    .ticket.t-modern {
+      background: #FFFFFF; border: 1px dashed #94A3B8; color: #1E293B;
+    }
+    .ticket.t-modern .t-header { border-bottom: 1.5px solid #146B69; }
+    .ticket.t-modern .t-title { color: #146B69; }
+    .ticket.t-modern .t-badge { background: #F8FAFC; border: 1px solid #E2E8F0; }
+    .ticket.t-modern th { color: #64748B; border-bottom: 1px solid #CBD5E1; }
+    .ticket.t-modern td { color: #146B69; }
+
+    /* Template 2: Klassisch & Formal */
+    .ticket.t-classic {
+      background: #FFFDF9; border: 2px solid #334155; color: #0F172A; font-family: 'Times New Roman', serif;
+    }
+    .ticket.t-classic .t-header { border-bottom: 2px solid #334155; }
+    .ticket.t-classic .t-title { color: #0F172A; text-transform: uppercase; letter-spacing: 1px; font-size: 12pt; }
+    .ticket.t-classic .t-badge { background: #F1F5F9; border: 1px solid #94A3B8; }
+    .ticket.t-classic th { color: #0F172A; border-bottom: 1.5px solid #334155; }
+    .ticket.t-classic td { color: #0F172A; }
+
+    /* Template 3: Minimalistisch S/W */
+    .ticket.t-minimal {
+      background: #FFFFFF; border: 1px solid #000000; color: #000000;
+    }
+    .ticket.t-minimal .t-header { border-bottom: 1px solid #000000; }
+    .ticket.t-minimal .t-title { color: #000000; font-weight: 900; }
+    .ticket.t-minimal .t-badge { background: #FFFFFF; border: 1px solid #000000; }
+    .ticket.t-minimal th { color: #000000; border-bottom: 1px solid #000000; }
+    .ticket.t-minimal td { color: #000000; font-weight: bold; }
+
     .ticket {
       width: 140mm;
       height: 100mm;
-      background: #FFFFFF;
-      border: 1px dashed #94A3B8;
       border-radius: 4px;
       padding: 8mm 10mm;
       display: flex;
@@ -1044,12 +1074,12 @@ function openPrint(r) {
       box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }
     table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin: 4px 0; }
-    th { text-align: left; font-size: 6.5pt; text-transform: uppercase; color: #64748B; padding: 2px 6px; border-bottom: 1px solid #CBD5E1; }
+    th { text-align: left; font-size: 6.5pt; text-transform: uppercase; padding: 2px 6px; }
 
     @media print {
       body { background: #FFFFFF; padding: 0; }
       .nav-bar { display: none !important; }
-      .ticket { border: 1px dashed #999; box-shadow: none; width: 140mm; height: 100mm; }
+      .ticket { box-shadow: none; width: 140mm; height: 100mm; }
     }
   </style>
 </head>
@@ -1058,16 +1088,21 @@ function openPrint(r) {
     <button class="nav-btn" onclick="if(window.history.length > 1) { window.history.back(); } else { window.close(); }">
       ✕ Zurück zur App
     </button>
+    <div class="nav-group">
+      <button class="nav-btn active" id="btnMod" onclick="setTemplate('t-modern', this)">Modern</button>
+      <button class="nav-btn" id="btnCls" onclick="setTemplate('t-classic', this)">Klassisch</button>
+      <button class="nav-btn" id="btnMin" onclick="setTemplate('t-minimal', this)">Minimal</button>
+    </div>
     <button class="nav-btn nav-btn-primary" onclick="window.print()">
-      🖨 Jetzt drucken
+      🖨 Drucken
     </button>
   </div>
 
-  <div class="ticket">
-    <div style="display:flex; justify-content:space-between; border-bottom:1.5px solid #146B69; padding-bottom:3px;">
+  <div class="ticket t-modern" id="ticketBox">
+    <div class="t-header" style="display:flex; justify-content:space-between; padding-bottom:3px;">
       <div>
-        <strong style="font-size:11pt; color:#146B69;">Entschuldigung</strong>
-        <p style="font-size:6.5pt; color:#64748B;">Vorlage für Lehrkräfte</p>
+        <strong class="t-title" style="font-size:11pt;">Entschuldigung</strong>
+        <p style="font-size:6.5pt; opacity:0.7;">Vorlage für Lehrkräfte</p>
       </div>
       <div style="text-align:right; font-size:7pt;">
         Datum: <strong>${escapeHtml(safe.longStr)}</strong><br>
@@ -1075,7 +1110,7 @@ function openPrint(r) {
       </div>
     </div>
 
-    <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:4px 8px; border-radius:4px; font-size:7.5pt; display:flex; gap:12px;">
+    <div class="t-badge" style="padding:4px 8px; border-radius:4px; font-size:7.5pt; display:flex; gap:12px;">
       <div>Schüler/in: <strong>${escapeHtml(r.name||student.name||'–')}</strong></div>
       <div>Klasse: <strong>${escapeHtml(r.klasse||student.klasse||'–')}</strong></div>
       <div>Grund: <strong>Krankheit</strong></div>
@@ -1088,15 +1123,24 @@ function openPrint(r) {
       </table>
     </div>
 
-    <p style="font-size:7pt; color:#334155; line-height:1.35;">
+    <p style="font-size:7pt; line-height:1.35; opacity:0.9;">
       Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus gesundheitlichen Gründen zu entschuldigen.
     </p>
 
-    <div style="display:grid; grid-template-columns:1fr 1.3fr; gap:20px; text-align:center; font-size:6.5pt; color:#64748B; margin-top:2px;">
-      <div style="border-top:1px solid #475569; padding-top:2px;">Ort, Datum</div>
-      <div style="border-top:1px solid #475569; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
+    <div style="display:grid; grid-template-columns:1fr 1.3fr; gap:20px; text-align:center; font-size:6.5pt; opacity:0.8; margin-top:2px;">
+      <div style="border-top:1px solid currentColor; padding-top:2px;">Ort, Datum</div>
+      <div style="border-top:1px solid currentColor; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
     </div>
   </div>
+
+  <script>
+    function setTemplate(className, btn) {
+      const box = document.getElementById('ticketBox');
+      box.className = 'ticket ' + className;
+      document.querySelectorAll('.nav-group .nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
 </body>
 </html>`);
   win.document.close();
