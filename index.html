@@ -314,26 +314,6 @@
     </div>
 
     <div class="card">
-      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Versandart</h2>
-      <div class="grid-2">
-        <label class="radio-card">
-          <input type="radio" name="mode" value="mailto" checked>
-          <div>
-            <span style="display:block; font-size:0.875rem; font-weight:600;">Sofortstart</span>
-            <span style="font-size:0.75rem; color:var(--mute);">Öffnet dein Mail-Programm</span>
-          </div>
-        </label>
-        <label class="radio-card">
-          <input type="radio" name="mode" value="api">
-          <div>
-            <span style="display:block; font-size:0.875rem; font-weight:600;">SMTP-API</span>
-            <span style="font-size:0.75rem; color:var(--mute);">Automatisch über Backend</span>
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <div class="card">
       <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Empfänger</h2>
       <div class="grid-2">
         <label class="radio-card">
@@ -378,16 +358,20 @@
   <!-- ================= TAB: EINSTELLUNGEN ================= -->
   <section id="panel-settings" class="hidden">
     <div class="card">
-      <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.5rem;">SMTP-API Endpunkt</h2>
-      <input id="apiEndpoint" type="url" class="input-box" placeholder="https://mein-backend.example.com/send-mail">
-    </div>
-
-    <div class="card">
       <div class="flex-between" style="margin-bottom:1rem;">
         <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
-        <span id="scheduleSaveIndicator" style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert automatisch</span>
+        <span id="scheduleSaveIndicator" style="font-size:0.75rem; color:var(--brand); font-weight:600;"></span>
       </div>
       <div id="scheduleEditor"></div>
+      
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button id="saveScheduleBtn" class="btn-main" style="padding:0.7rem; font-size:0.9rem; flex:2;">
+          💾 Stundenplan speichern
+        </button>
+        <button id="resetScheduleBtn" class="btn-sub" style="flex:1;">
+          Zurücksetzen
+        </button>
+      </div>
     </div>
 
     <div class="card" style="border-color: rgba(180,67,47,0.3); background: #fffaf9;">
@@ -545,7 +529,6 @@ const firebaseConfig = {
 let auth = null, db = null, currentUser = null, unsubscribeDoc = null;
 let isSyncingFromCloud = false;
 let localLastUpdated = 0;
-let debounceTimer = null;
 
 try {
   if (window.firebase) {
@@ -626,10 +609,6 @@ function applyCloudData(data) {
     localStorage.setItem(LS_STUDENT, JSON.stringify(student));
     document.getElementById('stuName').value = student.name || '';
     document.getElementById('stuKlasse').value = student.klasse || '';
-
-    settings = data.settings || { apiEndpoint: '' };
-    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
-    document.getElementById('apiEndpoint').value = settings.apiEndpoint || '';
 
     reminders = data.reminders || [];
     localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders));
@@ -770,7 +749,7 @@ function cryptoId() { return 'x' + Math.random().toString(36).slice(2, 10); }
 
 let schedule = JSON.parse(localStorage.getItem(LS_SCHEDULE) || 'null') || structuredClone(DEFAULT_SCHEDULE);
 let student = JSON.parse(localStorage.getItem(LS_STUDENT) || 'null') || { name: '', klasse: '' };
-let settings = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { apiEndpoint: '' };
+let settings = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || {};
 let reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || 'null') || [];
 let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
 let proofsArchive = JSON.parse(localStorage.getItem(LS_PROOFS) || 'null') || [];
@@ -778,24 +757,9 @@ let securityPin = localStorage.getItem(LS_SECURITY_PIN) || '1234';
 
 function saveSchedule(s) { localStorage.setItem(LS_SCHEDULE, JSON.stringify(s)); syncWithCloud(); }
 function saveStudent(s) { localStorage.setItem(LS_STUDENT, JSON.stringify(s)); syncWithCloud(); }
-function saveSettings(s) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); syncWithCloud(); }
 function saveReminders(r) { localStorage.setItem(LS_REMINDERS, JSON.stringify(r)); syncWithCloud(); }
 function saveStatusLog(l) { localStorage.setItem(LS_STATUS_LOG, JSON.stringify(l)); syncWithCloud(); }
 function saveProofsArchive(p) { localStorage.setItem(LS_PROOFS, JSON.stringify(p)); syncWithCloud(); }
-
-function triggerScheduleSave() {
-  const ind = document.getElementById('scheduleSaveIndicator');
-  if (ind) ind.textContent = '💾 Speichere...';
-
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    saveSchedule(schedule);
-    renderSubjects();
-    renderUntisWeek();
-    if (ind) ind.textContent = '✓ Gespeichert';
-    setTimeout(() => { if (ind) ind.textContent = '✓ Speichert automatisch'; }, 1500);
-  }, 400);
-}
 
 function toIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -905,15 +869,6 @@ stuKlasseInp.addEventListener('input', () => {
   saveStudent(student);
 });
 
-const apiEndpointInp = document.getElementById('apiEndpoint');
-apiEndpointInp.value = settings.apiEndpoint || '';
-apiEndpointInp.addEventListener('input', () => {
-  if (isSyncingFromCloud) return;
-  settings.apiEndpoint = apiEndpointInp.value.trim();
-  saveSettings(settings);
-});
-
-/* Grund & Ankunftszeit werden jetzt an die Erinnerung übergeben */
 function syncReminderForDate(iso, dayName, explicitReason = '', explicitAnkunft = '') {
   const subs = schedule[dayName] || [];
   const sick = [];
@@ -1062,7 +1017,6 @@ function openPrint(r) {
     .nav-btn.active { background: #146B69; color: #FFFFFF; border-color: #146B69; }
     .nav-btn-primary { background: #146B69; color: #FFFFFF; border-color: #146B69; }
 
-    /* Fester Behälter für alle Layouts: Exakt 140mm x 100mm */
     .ticket {
       width: 140mm;
       height: 100mm;
@@ -1071,9 +1025,7 @@ function openPrint(r) {
       position: relative;
     }
 
-    /* =========================================================
-       LAYOUT 1: BEHÖRDLICHES FORMULAR (Klassisches Schul-Raster)
-       ========================================================= */
+    /* LAYOUT 1: BEHÖRDLICHES FORMULAR */
     .ticket.t-formular {
       background: #FFFFFF;
       border: 1.5px solid #1E293B;
@@ -1107,9 +1059,7 @@ function openPrint(r) {
     }
     .t-formular .sign-line { border-top: 1px solid #1E293B; padding-top: 2px; }
 
-    /* =========================================================
-       LAYOUT 2: MODERNES ZERTIFIKAT (Farb-Akzentleiste & Badges)
-       ========================================================= */
+    /* LAYOUT 2: MODERNES ZERTIFIKAT */
     .ticket.t-modern-card {
       background: #FFFFFF;
       border: 1px solid #CBD5E1;
@@ -1142,9 +1092,7 @@ function openPrint(r) {
     }
     .t-modern-card .sign-line { border-top: 1px dashed #94A3B8; padding-top: 2px; }
 
-    /* =========================================================
-       LAYOUT 3: FORMALER BRIEFKOPF (DIN-Anlehnung, Zentriert & Schlicht)
-       ========================================================= */
+    /* LAYOUT 3: FORMALER BRIEFKOPF */
     .ticket.t-formal-letter {
       background: #FAFAF9;
       border: 1px solid #78716C;
@@ -1196,7 +1144,6 @@ function openPrint(r) {
     </button>
   </div>
 
-  <!-- CONTAINER: FORMAT 140mm x 100mm -->
   <div class="ticket t-formular" id="ticketBox">
     <div id="contentHolder" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;"></div>
   </div>
@@ -1366,7 +1313,6 @@ document.getElementById('currentWeekBtn').addEventListener('click', () => {
   renderUntisWeek(); 
 });
 
-/* Raster mit getrennter Verspätungs-Farbgebung */
 function renderUntisWeek() {
   const grid = document.getElementById('untisGrid');
   grid.innerHTML = '';
@@ -1702,7 +1648,7 @@ document.getElementById('deleteProofDetailBtn').addEventListener('click', () => 
 
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor */
+/* Schedule Editor – Jetzt mit manuellem Speichern */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1752,20 +1698,20 @@ function renderScheduleEditor() {
         <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
       `;
 
+      // Ändert nur die Daten im Speicher, triggert KEIN automatisches Neurendern beim Tippen
       row.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('input', (e) => {
-          if (isSyncingFromCloud) return;
           s[e.target.dataset.field] = e.target.value;
-          triggerScheduleSave();
+          const ind = document.getElementById('scheduleSaveIndicator');
+          if (ind) ind.textContent = '● Nicht gespeicherte Änderungen';
         });
       });
 
       row.querySelector('.btn-del-subject').addEventListener('click', () => {
         schedule[day].splice(i, 1);
-        saveSchedule(schedule);
         renderScheduleEditor();
-        renderSubjects();
-        renderUntisWeek();
+        const ind = document.getElementById('scheduleSaveIndicator');
+        if (ind) ind.textContent = '● Nicht gespeicherte Änderungen';
       });
 
       rowsContainer.appendChild(row);
@@ -1774,10 +1720,9 @@ function renderScheduleEditor() {
     block.querySelector(`[data-add-to="${day}"]`).addEventListener('click', () => {
       openScheduleDays.add(day);
       schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
-      saveSchedule(schedule);
       renderScheduleEditor();
-      renderSubjects();
-      renderUntisWeek();
+      const ind = document.getElementById('scheduleSaveIndicator');
+      if (ind) ind.textContent = '● Nicht gespeicherte Änderungen';
     });
 
     ed.appendChild(block);
@@ -1793,6 +1738,25 @@ function escapeAttr(str) {
 }
 
 renderScheduleEditor();
+
+/* Manuelle Speicher-Buttons für den Stundenplan */
+document.getElementById('saveScheduleBtn').addEventListener('click', () => {
+  saveSchedule(schedule);
+  renderSubjects();
+  renderUntisWeek();
+  const ind = document.getElementById('scheduleSaveIndicator');
+  if (ind) ind.textContent = '✓ Stundenplan erfolgreich gespeichert!';
+  setTimeout(() => { if (ind) ind.textContent = ''; }, 2500);
+});
+
+document.getElementById('resetScheduleBtn').addEventListener('click', () => {
+  if (confirm("Möchtest du den Stundenplan auf den Standard zurücksetzen? (Muss danach noch gespeichert werden)")) {
+    schedule = structuredClone(DEFAULT_SCHEDULE);
+    renderScheduleEditor();
+    const ind = document.getElementById('scheduleSaveIndicator');
+    if (ind) ind.textContent = '● Nicht gespeicherte Änderungen';
+  }
+});
 
 /* Gefahrenbereich mit PIN */
 document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
