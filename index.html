@@ -62,7 +62,7 @@
     .hidden { display: none !important; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; }
 
-    /* Stundenplan Editor Styling wie auf Screenshot */
+    /* Stundenplan Editor Styling */
     .schedule-day-block {
       border: 1px solid #E2E8F0;
       border-radius: 0.75rem;
@@ -324,15 +324,16 @@
     </div>
 
     <div class="card">
-      <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink); margin-bottom:1rem;">Regulärer Stundenplan</h2>
+      <div class="flex-between" style="margin-bottom:1rem;">
+        <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
+        <span style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert automatisch</span>
+      </div>
       <div id="scheduleEditor"></div>
     </div>
 
     <div style="display:flex; gap:0.5rem;">
-      <button id="saveSettings" class="btn-main" style="flex:1;">Speichern</button>
-      <button id="resetSettings" class="btn-sub">Zurücksetzen</button>
+      <button id="resetSettings" class="btn-sub" style="width:100%; color:var(--bad); border-color:rgba(180,67,47,0.3);">Stundenplan auf Standard zurücksetzen</button>
     </div>
-    <p id="saveNote" class="hidden" style="color:var(--brand); font-size:0.75rem; margin-top:0.5rem;">Gespeichert!</p>
   </section>
 
 </div>
@@ -431,7 +432,7 @@
 
 <script>
 /* ---------------------------------------------------------------------
-   Firebase Initialisierung
+   Firebase Initialisierung (Exakt deine Einstellungen beibehalten)
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAKxyP5jspdjKEyOLcRaLvoTffWUkR_148",
@@ -466,6 +467,7 @@ try {
         authUserInfo.classList.remove('hidden');
         authUserEmail.textContent = user.email;
 
+        // Cloud-Daten in Echtzeit beobachten
         const userRef = db.collection('users').doc(user.uid);
         unsubscribeDoc = userRef.onSnapshot((docSnap) => {
           if (docSnap.exists) {
@@ -499,8 +501,17 @@ function pushAllToCloud() { syncWithCloud(); }
 function applyCloudData(data) {
   if (!data) return;
   if (data.schedule) { schedule = data.schedule; localStorage.setItem(LS_SCHEDULE, JSON.stringify(schedule)); renderScheduleEditor(); }
-  if (data.student) { student = data.student; localStorage.setItem(LS_STUDENT, JSON.stringify(student)); document.getElementById('stuName').value = student.name || ''; document.getElementById('stuKlasse').value = student.klasse || ''; }
-  if (data.settings) { settings = data.settings; localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+  if (data.student) { 
+    student = data.student; 
+    localStorage.setItem(LS_STUDENT, JSON.stringify(student)); 
+    document.getElementById('stuName').value = student.name || ''; 
+    document.getElementById('stuKlasse').value = student.klasse || ''; 
+  }
+  if (data.settings) { 
+    settings = data.settings; 
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); 
+    document.getElementById('apiEndpoint').value = settings.apiEndpoint || '';
+  }
   if (data.reminders) { reminders = data.reminders; localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders)); renderReminders(); }
   if (data.statusLog) { statusLog = data.statusLog; localStorage.setItem(LS_STATUS_LOG, JSON.stringify(statusLog)); renderUntisWeek(); }
   renderSubjects();
@@ -749,8 +760,30 @@ document.querySelectorAll('input[name="meldeArt"]').forEach(r => {
   });
 });
 
-document.getElementById('stuName').value = student.name || '';
-document.getElementById('stuKlasse').value = student.klasse || '';
+/* Personen-Angaben mit automatischem Speichern */
+const stuNameInp = document.getElementById('stuName');
+const stuKlasseInp = document.getElementById('stuKlasse');
+
+stuNameInp.value = student.name || '';
+stuKlasseInp.value = student.klasse || '';
+
+stuNameInp.addEventListener('input', () => {
+  student.name = stuNameInp.value.trim();
+  saveStudent(student);
+});
+
+stuKlasseInp.addEventListener('input', () => {
+  student.klasse = stuKlasseInp.value.trim();
+  saveStudent(student);
+});
+
+/* API-Endpoint mit automatischem Speichern */
+const apiEndpointInp = document.getElementById('apiEndpoint');
+apiEndpointInp.value = settings.apiEndpoint || '';
+apiEndpointInp.addEventListener('input', () => {
+  settings.apiEndpoint = apiEndpointInp.value.trim();
+  saveSettings(settings);
+});
 
 function syncReminderForDate(iso, dayName) {
   const subs = schedule[dayName] || [];
@@ -1034,7 +1067,7 @@ document.getElementById('openArchiveBtn').addEventListener('click', async () => 
 });
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor – Neuer saubere Tabellen-Stil */
+/* Schedule Editor – Speichert jetzt direkt automatisch */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1084,24 +1117,36 @@ function renderScheduleEditor() {
         <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
       `;
 
+      // Direkte automatische Speicherung bei Tastatur- oder Dropdown-Eingabe
       row.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('input', (e) => {
           s[e.target.dataset.field] = e.target.value;
+          saveSchedule(schedule);
+          renderSubjects();
+          renderUntisWeek();
         });
       });
 
+      // Automatisches Speichern beim Löschen eines Fachs
       row.querySelector('.btn-del-subject').addEventListener('click', () => {
         schedule[day].splice(i, 1);
+        saveSchedule(schedule);
         renderScheduleEditor();
+        renderSubjects();
+        renderUntisWeek();
       });
 
       rowsContainer.appendChild(row);
     });
 
+    // Automatisches Speichern beim Hinzufügen eines Fachs
     block.querySelector(`[data-add-to="${day}"]`).addEventListener('click', () => {
       openScheduleDays.add(day);
       schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
+      saveSchedule(schedule);
       renderScheduleEditor();
+      renderSubjects();
+      renderUntisWeek();
     });
 
     ed.appendChild(block);
@@ -1113,16 +1158,6 @@ function escapeAttr(str) {
 }
 
 renderScheduleEditor();
-
-document.getElementById('saveSettings').addEventListener('click', () => {
-  saveSchedule(schedule);
-  settings.apiEndpoint = document.getElementById('apiEndpoint').value.trim();
-  saveSettings(settings);
-  renderSubjects();
-  renderUntisWeek();
-  document.getElementById('saveNote').classList.remove('hidden');
-  setTimeout(() => document.getElementById('saveNote').classList.add('hidden'), 2000);
-});
 
 document.getElementById('resetSettings').addEventListener('click', () => {
   if (confirm("Möchtest du den Stundenplan wirklich auf die Standardeinstellungen zurücksetzen?")) {
