@@ -30,7 +30,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--canvas); color: var(--ink); min-height: 100vh; }
-    .container { max-width: 58rem; margin: 0 auto; padding: 1.5rem 1rem; }
+    .container { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem; }
     @media (min-width: 640px) { .container { padding: 2.5rem 1.5rem; } }
 
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 1.1rem; padding: 1rem; margin-bottom: 1.25rem; }
@@ -92,12 +92,12 @@
     .schedule-day-content { padding: 1rem 1.1rem; }
     .schedule-row {
       display: grid;
-      grid-template-columns: 2.2fr 1.3fr 1.8fr 3fr 1fr 32px;
-      gap: 0.6rem;
+      grid-template-columns: 2fr 1.1fr 1.6fr 2.6fr 0.9fr 1.6fr 32px;
+      gap: 0.5rem;
       align-items: center;
       margin-bottom: 0.65rem;
     }
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .schedule-row {
         grid-template-columns: 1fr 1fr;
         gap: 0.4rem;
@@ -109,7 +109,7 @@
       border: 1px solid #CBD5E1;
       border-radius: 0.65rem;
       padding: 0.55rem 0.75rem;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: #1E293B;
       outline: none;
       background: #FFFFFF;
@@ -145,7 +145,7 @@
     .btn-del-subject:hover { color: #EF4444; background: #FEF2F2; }
 
     /* Untis Grid */
-    .grid-table { display: grid; grid-template-columns: repeat(5, minmax(135px, 1fr)); border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden; background: var(--surface); }
+    .grid-table { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden; background: var(--surface); }
     .grid-col { border-right: 1px solid var(--line); background: rgba(245, 247, 250, 0.4); min-height: 380px; display: flex; flex-direction: column; }
     .grid-col:last-child { border-right: none; }
     .grid-col.is-holiday { background: rgba(241, 245, 249, 0.65); }
@@ -328,12 +328,15 @@
 
     <div class="card">
       <div class="flex-between" style="margin-bottom:0.75rem;">
-        <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute);">Fächer</h2>
+        <div>
+          <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute);">Fächer</h2>
+          <span id="meldDayInfoBadge" style="font-size:0.72rem; color:var(--brand); font-weight:600;"></span>
+        </div>
         <select id="daySelect" class="input-box" style="width:auto; padding:0.3rem 0.5rem;"></select>
       </div>
       <div id="subjectList" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
       <div id="noSubjects" class="hidden" style="text-align:center; padding:1.5rem; font-size:0.875rem; color:var(--mute);">
-        Keine Fächer hinterlegt.
+        Keine Fächer für diese Woche hinterlegt.
       </div>
       <div style="display:flex; gap:1rem; margin-top:0.75rem; font-size:0.75rem;">
         <button id="selectAll" style="background:none; border:none; color:var(--brand); cursor:pointer; font-weight:600;">Alle auswählen</button>
@@ -419,7 +422,7 @@
     </div>
 
     <div style="overflow-x:auto; margin-bottom:1rem;">
-      <div id="untisGrid" class="grid-table" style="min-width:670px;"></div>
+      <div id="untisGrid" class="grid-table" style="min-width:690px;"></div>
     </div>
     <p id="historyStats" style="font-size:0.75rem; color:var(--mute); text-align:right;">–</p>
   </section>
@@ -428,7 +431,10 @@
   <section id="panel-settings" class="hidden">
     <div class="card">
       <div class="flex-between" style="margin-bottom:1rem;">
-        <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
+        <div>
+          <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
+          <p style="font-size:0.75rem; color:var(--mute);">Inklusive A- / B-Wochen Turnus (gerade / ungerade Wochen)</p>
+        </div>
         <span id="scheduleSaveIndicator" style="font-size:0.75rem; color:var(--brand); font-weight:600;"></span>
       </div>
       <div id="scheduleEditor"></div>
@@ -446,7 +452,7 @@
     <div class="card" style="border-color: rgba(180,67,47,0.3); background: #fffaf9;">
       <h2 style="font-size:0.95rem; font-weight:700; color:var(--bad); margin-bottom:0.4rem;">Gefahr-Bereich: Fehlzeiten & Nachweise leeren</h2>
       <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">
-        Löscht alle Fehlzeiten-Logs, Entschuldigungs-Zettel und lokal gespeicherte Nachweisfotos. Dein regulärer Stundenplan bleibt erhalten.
+        Löscht alle Fehlzeiten-Logs, Entschuldigungs-Zettel und hochgeladene Nachweise. Dein regulärer Stundenplan bleibt vollständig erhalten.
       </p>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button id="resetAbsencesBtn" class="btn-sub" style="color:var(--bad); border-color:var(--bad); font-weight:700;">
@@ -728,6 +734,39 @@ async function deleteProofFromDB(id) {
 }
 
 /* ---------------------------------------------------------------------
+   A- / B-Wochen (ISO-Kalenderwoche: gerade vs. ungerade)
+--------------------------------------------------------------------- */
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function getWeekType(date) {
+  const kw = getWeekNumber(date);
+  const isEven = (kw % 2 === 0);
+  return {
+    kw,
+    type: isEven ? 'B' : 'A',
+    label: isEven ? 'B-Woche (gerade)' : 'A-Woche (ungerade)',
+    shortLabel: isEven ? 'B-Woche' : 'A-Woche'
+  };
+}
+
+function isSubjectInWeek(s, dateOrIso) {
+  const turnus = s.woche || 'alle';
+  if (turnus === 'alle') return true;
+  const d = typeof dateOrIso === 'string' ? parseIsoLocal(dateOrIso) : new Date(dateOrIso);
+  const kw = getWeekNumber(d);
+  const isEven = (kw % 2 === 0);
+  if (turnus === 'B') return isEven;     // B-Woche = gerade KW
+  if (turnus === 'A') return !isEven;    // A-Woche = ungerade KW
+  return true;
+}
+
+/* ---------------------------------------------------------------------
    Ferien- & Feiertagskalender (Niedersachsen)
 --------------------------------------------------------------------- */
 const NIEDERSACHSEN_FERIEN = [
@@ -876,7 +915,6 @@ function syncWithCloud() {
     const ts = Date.now();
     localLastUpdated = ts;
 
-    // proofsArchive speichert online schlanke Metadaten ohne schwere Base64-Fotos!
     const lightProofs = proofsArchive.map(p => ({
       id: p.id,
       isoDate: p.isoDate,
@@ -1029,32 +1067,32 @@ const LS_SECURITY_PIN = 'krankmelden_security_pin';
 
 const DEFAULT_SCHEDULE = {
   Montag: [
-    { id: 'm1', fach: 'Geschichte', anrede: 'Herr', nachname: 'Koch', email: 'alexander.koch@kgs-badlauterberg.de', stunde: '1/2' },
-    { id: 'm2', fach: 'Physik', anrede: 'Frau', nachname: 'Bierwirth', email: 'rebekka.bierwirth@kgs-badlauterberg.de', stunde: '3/4' },
-    { id: 'm3', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '5' },
-    { id: 'm4', fach: 'Erdkunde', anrede: 'Frau', nachname: 'Nürnberger-Wolf', email: 'j.nuernberger-wolf@kgs-badlauterberg.de', stunde: '6' }
+    { id: 'm1', fach: 'Geschichte', anrede: 'Herr', nachname: 'Koch', email: 'alexander.koch@kgs-badlauterberg.de', stunde: '1/2', woche: 'alle' },
+    { id: 'm2', fach: 'Physik', anrede: 'Frau', nachname: 'Bierwirth', email: 'rebekka.bierwirth@kgs-badlauterberg.de', stunde: '3/4', woche: 'alle' },
+    { id: 'm3', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '5', woche: 'alle' },
+    { id: 'm4', fach: 'Erdkunde', anrede: 'Frau', nachname: 'Nürnberger-Wolf', email: 'j.nuernberger-wolf@kgs-badlauterberg.de', stunde: '6', woche: 'alle' }
   ],
   Dienstag: [
-    { id: 'di1', fach: 'WPK', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '2' },
-    { id: 'di2', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '3/4' },
-    { id: 'di3', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '5/6' },
-    { id: 'di4', fach: 'Kunst', anrede: 'Frau', nachname: 'Leise', email: 'louisa.leise@kgs-badlauterberg.de', stunde: '7/8' }
+    { id: 'di1', fach: 'WPK', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '2', woche: 'alle' },
+    { id: 'di2', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '3/4', woche: 'alle' },
+    { id: 'di3', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '5/6', woche: 'alle' },
+    { id: 'di4', fach: 'Kunst', anrede: 'Frau', nachname: 'Leise', email: 'louisa.leise@kgs-badlauterberg.de', stunde: '7/8', woche: 'alle' }
   ],
   Mittwoch: [
-    { id: 'mi1', fach: 'Bio', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '1/2' },
-    { id: 'mi2', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '3/4' },
-    { id: 'mi3', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' },
-    { id: 'mi4', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '5/6' },
-    { id: 'mi5', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '7/8' }
+    { id: 'mi1', fach: 'Bio', anrede: 'Frau', nachname: 'Herrmann', email: 'sarah.herrmann@kgs-badlauterberg.de', stunde: '1/2', woche: 'alle' },
+    { id: 'mi2', fach: 'Mathe', anrede: 'Frau', nachname: 'Blumenstein', email: 'elina.blumenstein@kgs-badlauterberg.de', stunde: '3/4', woche: 'alle' },
+    { id: 'mi3', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6', woche: 'alle' },
+    { id: 'mi4', fach: 'Deutsch', anrede: 'Frau', nachname: 'Weide', email: 'lisa.weide@kgs-badlauterberg.de', stunde: '5/6', woche: 'alle' },
+    { id: 'mi5', fach: 'Politik', anrede: 'Frau', nachname: 'Truffner', email: 'ann-kathrin.truffner@kgs-badlauterberg.de', stunde: '7/8', woche: 'B' }
   ],
   Donnerstag: [
-    { id: 'do1', fach: 'Werte & Normen', anrede: 'Frau', nachname: 'Requardt', email: 'aiden.requardt@kgs-badlauterberg.de', stunde: '1/2' },
-    { id: 'do2', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '3/4' }
+    { id: 'do1', fach: 'Werte & Normen', anrede: 'Frau', nachname: 'Requardt', email: 'aiden.requardt@kgs-badlauterberg.de', stunde: '1/2', woche: 'alle' },
+    { id: 'do2', fach: 'Englisch', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '3/4', woche: 'alle' }
   ],
   Freitag: [
-    { id: 'fr1', fach: 'WPK', anrede: 'Frau', nachname: 'Alert', email: 'andrea.alert@kgs-badlauterberg.de', stunde: '1/2' },
-    { id: 'fr2', fach: 'Chemie', anrede: 'Herr', nachname: 'Pauls', email: 'michael.pauls@kgs-badlauterberg.de', stunde: '3/4' },
-    { id: 'fr3', fach: 'Sport', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6' }
+    { id: 'fr1', fach: 'WPK', anrede: 'Frau', nachname: 'Alert', email: 'andrea.alert@kgs-badlauterberg.de', stunde: '1/2', woche: 'alle' },
+    { id: 'fr2', fach: 'Chemie', anrede: 'Herr', nachname: 'Pauls', email: 'michael.pauls@kgs-badlauterberg.de', stunde: '3/4', woche: 'alle' },
+    { id: 'fr3', fach: 'Sport', anrede: 'Herr', nachname: 'Karpstein', email: 'christoph.karpstein@kgs-badlauterberg.de', stunde: '5/6', woche: 'alle' }
   ]
 };
 
@@ -1068,7 +1106,7 @@ let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
 let proofsArchive = JSON.parse(localStorage.getItem(LS_PROOFS) || 'null') || [];
 let securityPin = localStorage.getItem(LS_SECURITY_PIN) || '1234';
 
-// Automatische Migration alter Belege aus LocalStorage in IndexedDB
+// Migration von Altbelegen in IndexedDB
 async function migrateLegacyProofs() {
   let needsSave = false;
   for (const p of proofsArchive) {
@@ -1117,14 +1155,27 @@ function getDeadlineInfo(iso) {
   return { dlStr, text, color };
 }
 
+function getTargetDateForWeekday(dayName) {
+  const nowD = new Date();
+  const targetDayIdx = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'].indexOf(dayName) + 1;
+  let diff = targetDayIdx - nowD.getDay();
+  if (diff < 0) diff += 7;
+  const target = new Date(nowD);
+  target.setDate(nowD.getDate() + diff);
+  target.setHours(12, 0, 0, 0);
+  return target;
+}
+
 const now = new Date();
 const map = { 1: 'Montag', 2: 'Dienstag', 3: 'Mittwoch', 4: 'Donnerstag', 5: 'Freitag' };
 const curWeekday = map[now.getDay()] || null;
-document.getElementById('headerWeekday').textContent = curWeekday || 'Wochenende';
-document.getElementById('headerDate').textContent = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const todayWeekInfo = getWeekType(now);
+
+document.getElementById('headerWeekday').textContent = curWeekday ? `${curWeekday} (${todayWeekInfo.shortLabel})` : 'Wochenende';
+document.getElementById('headerDate').textContent = `${now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} · KW ${todayWeekInfo.kw}`;
 document.getElementById('todayLine').textContent = curWeekday 
-  ? `Heute ist ${now.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}.` 
-  : 'Heute ist kein Schultag – wähle unten einen Tag zum Melden.';
+  ? `Heute ist ${now.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })} · KW ${todayWeekInfo.kw} (${todayWeekInfo.label}).` 
+  : `Heute ist kein Schultag · KW ${todayWeekInfo.kw} (${todayWeekInfo.label}) – wähle unten einen Tag zum Melden.`;
 
 const tabButtons = document.querySelectorAll('.tab-btn');
 const panels = {
@@ -1151,15 +1202,33 @@ daySelect.value = curWeekday || 'Montag';
 function renderSubjects() {
   const list = document.getElementById('subjectList');
   list.innerHTML = '';
-  const subs = schedule[daySelect.value] || [];
+  
+  const targetDate = getTargetDateForWeekday(daySelect.value);
+  const targetIso = toIsoDate(targetDate);
+  const targetWeekInfo = getWeekType(targetDate);
+  
+  const badgeEl = document.getElementById('meldDayInfoBadge');
+  if (badgeEl) {
+    badgeEl.textContent = `📅 Für ${targetDate.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' })} · KW ${targetWeekInfo.kw} (${targetWeekInfo.shortLabel})`;
+  }
+
+  const allSubs = schedule[daySelect.value] || [];
+  const subs = allSubs.filter(s => isSubjectInWeek(s, targetDate));
+
   document.getElementById('noSubjects').classList.toggle('hidden', subs.length > 0);
+  
   subs.forEach(s => {
     const row = document.createElement('label');
     row.className = 'radio-card';
+    
+    let turnusBadge = '';
+    if (s.woche === 'A') turnusBadge = ' <span style="color:var(--brand); font-size:0.75rem; font-weight:700;">(A-Woche)</span>';
+    if (s.woche === 'B') turnusBadge = ' <span style="color:var(--brand); font-size:0.75rem; font-weight:700;">(B-Woche)</span>';
+
     row.innerHTML = `
       <input type="checkbox" class="subj-check" data-id="${s.id}" checked>
       <div style="flex:1; min-width:0;">
-        <span style="font-weight:600; font-size:0.875rem;">${escapeHtml(s.fach)} (${escapeHtml(s.stunde||'')}. Std.)</span>
+        <span style="font-weight:600; font-size:0.875rem;">${escapeHtml(s.fach)} (${escapeHtml(s.stunde||'')}. Std.)${turnusBadge}</span>
         <span style="display:block; font-size:0.75rem; color:var(--mute);">${escapeHtml(s.anrede)} ${escapeHtml(s.nachname)} · ${escapeHtml(s.email)}</span>
       </div>
     `;
@@ -1220,7 +1289,7 @@ function resolveReasonText(sickList, userExplicitReason = '') {
 }
 
 function syncReminderForDate(iso, dayName, explicitReason = '', explicitAnkunft = '') {
-  const subs = schedule[dayName] || [];
+  const subs = (schedule[dayName] || []).filter(s => isSubjectInWeek(s, iso));
   const sick = [];
   subs.forEach(s => {
     const st = statusLog[`${iso}|${s.id}`];
@@ -1312,10 +1381,8 @@ function renderReminders() {
         timestamp: Date.now() 
       };
 
-      // In IndexedDB speichern (schützt LocalStorage vor 5MB Überlauf)
       await saveProofToDB(proofRecord);
 
-      // Metadaten für schnellen Abgleich & Cloud halten
       proofsArchive = proofsArchive.filter(x => x.id !== r.id);
       proofsArchive.push({
         id: r.id,
@@ -1342,7 +1409,7 @@ function renderReminders() {
 renderReminders();
 
 /* ---------------------------------------------------------------------
-   Druck-Vorschau: Genormt auf 14 cm × 7 cm (Design aus Krankmeldung)
+   Druck-Vorschau: Genormt auf 14 cm × 7 cm
 --------------------------------------------------------------------- */
 function openPrint(r) {
   const win = window.open('', '_blank');
@@ -1379,26 +1446,10 @@ function openPrint(r) {
   <meta charset="UTF-8">
   <title>${escapeHtml(displayTitle)} – ${escapeHtml(safe.dateStr)}</title>
   <style>
-    @page { 
-      size: A4 portrait; 
-      margin: 10mm; 
-    }
-    * { 
-      box-sizing: border-box !important; 
-      margin: 0; 
-      padding: 0; 
-    }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-      color: #1E293B; 
-      background: #F1F5F9; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      padding: 25px 10px; 
-    }
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box !important; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1E293B; background: #F1F5F9; display: flex; flex-direction: column; align-items: center; padding: 25px 10px; }
     
-    /* Exakt 14 cm × 7 cm */
     .ticket { 
       width: 140mm !important; 
       max-width: 140mm !important; 
@@ -1415,114 +1466,29 @@ function openPrint(r) {
       overflow: hidden;
     }
     
-    .cut-guide { 
-      position: absolute; 
-      top: -7px; 
-      right: 8px; 
-      font-size: 7.5pt; 
-      background: #FFFFFF; 
-      padding: 0 4px; 
-      color: #64748B; 
-    }
+    .cut-guide { position: absolute; top: -7px; right: 8px; font-size: 7.5pt; background: #FFFFFF; padding: 0 4px; color: #64748B; }
+    .header { display: flex; justify-content: space-between; border-bottom: 1.5px solid #146B69; padding-bottom: 2px; }
+    .header h1 { font-size: 10pt; font-weight: 800; color: #146B69; line-height: 1.1; }
+    .meta { text-align: right; font-size: 6pt; line-height: 1.25; }
     
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      border-bottom: 1.5px solid #146B69; 
-      padding-bottom: 2px; 
-    }
-    .header h1 { 
-      font-size: 10pt; 
-      font-weight: 800; 
-      color: #146B69; 
-      line-height: 1.1; 
-    }
-    .meta { 
-      text-align: right; 
-      font-size: 6pt; 
-      line-height: 1.25; 
-    }
+    .student-bar { display: flex; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px; padding: 2.5px 6px; margin: 2.5px 0; font-size: 6.8pt; gap: 12px; }
+    .student-bar span { font-weight: 700; color: #0F172A; }
     
-    .student-bar { 
-      display: flex; 
-      background: #F8FAFC; 
-      border: 1px solid #E2E8F0; 
-      border-radius: 4px; 
-      padding: 2.5px 6px; 
-      margin: 2.5px 0; 
-      font-size: 6.8pt; 
-      gap: 12px; 
-    }
-    .student-bar span { 
-      font-weight: 700; 
-      color: #0F172A; 
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 6.8pt; margin: 1px 0; }
+    th { text-align: left; font-size: 5.8pt; text-transform: uppercase; color: #64748B; padding: 1.5px 4px; border-bottom: 1px solid #CBD5E1; }
     
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      font-size: 6.8pt; 
-      margin: 1px 0; 
-    }
-    th { 
-      text-align: left; 
-      font-size: 5.8pt; 
-      text-transform: uppercase; 
-      color: #64748B; 
-      padding: 1.5px 4px; 
-      border-bottom: 1px solid #CBD5E1; 
-    }
+    .statement { font-size: 6.4pt; color: #334155; margin-top: 3px; line-height: 1.25; }
+    .signatures { display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; margin-top: 2px; }
+    .sign-line { border-top: 1px solid #334155; padding-top: 2px; font-size: 5.8pt; color: #64748B; text-align: center; }
     
-    /* Text sitzt höher direkt unter der Tabelle */
-    .statement { 
-      font-size: 6.4pt; 
-      color: #334155; 
-      margin-top: 3px; 
-      line-height: 1.25; 
-    }
-    
-    .signatures { 
-      display: grid; 
-      grid-template-columns: 1fr 1.3fr; 
-      gap: 16px; 
-      margin-top: 2px; 
-    }
-    .sign-line { 
-      border-top: 1px solid #334155; 
-      padding-top: 2px; 
-      font-size: 5.8pt; 
-      color: #64748B; 
-      text-align: center; 
-    }
-    
-    .actions { 
-      margin-top: 14px; 
-      display: flex; 
-      gap: 8px; 
-    }
-    .actions button { 
-      background: #146B69; 
-      color: #fff; 
-      border: none; 
-      padding: 7px 18px; 
-      border-radius: 6px; 
-      font-weight: 600; 
-      font-size: 11px; 
-      cursor: pointer; 
-    }
-    .actions button.btn-back { 
-      background: #E2E8F0; 
-      color: #1E293B; 
-    }
+    .actions { margin-top: 14px; display: flex; gap: 8px; }
+    .actions button { background: #146B69; color: #fff; border: none; padding: 7px 18px; border-radius: 6px; font-weight: 600; font-size: 11px; cursor: pointer; }
+    .actions button.btn-back { background: #E2E8F0; color: #1E293B; }
     
     @media print { 
       body { background: white; padding: 0; margin: 0; } 
       .actions { display: none !important; } 
-      .ticket { 
-        box-shadow: none; 
-        page-break-inside: avoid; 
-        page-break-after: avoid; 
-      } 
+      .ticket { box-shadow: none; page-break-inside: avoid; page-break-after: avoid; } 
     }
   </style>
 </head>
@@ -1530,7 +1496,6 @@ function openPrint(r) {
   <div class="ticket">
     <div class="cut-guide">✂ Hier ausschneiden (14 × 7 cm)</div>
     
-    <!-- Oberer Block inkl. Entschuldigungssatz -->
     <div>
       <div class="header">
         <div>
@@ -1563,7 +1528,6 @@ function openPrint(r) {
       <p class="statement">${escapeHtml(statementText)}</p>
     </div>
 
-    <!-- Unterer Block: Unterschriften -->
     <div class="signatures">
       <div class="sign-line">Ort, Datum</div>
       <div class="sign-line">Unterschrift der Erziehungsberechtigten</div>
@@ -1676,7 +1640,10 @@ function renderUntisWeek() {
   const grid = document.getElementById('untisGrid');
   grid.innerHTML = '';
   const fri = new Date(curMonday); fri.setDate(fri.getDate() + 4);
-  document.getElementById('weekRangeLabel').textContent = `${curMonday.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})} – ${fri.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
+  const weekInfo = getWeekType(curMonday);
+
+  document.getElementById('weekRangeLabel').textContent = 
+    `${curMonday.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'})} – ${fri.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})} · KW ${weekInfo.kw} (${weekInfo.shortLabel})`;
 
   const proofDates = new Set((proofsArchive || []).map(p => p.isoDate));
 
@@ -1702,7 +1669,10 @@ function renderUntisWeek() {
     head.addEventListener('click', () => openDayModal(iso, day));
     col.appendChild(head);
 
-    (schedule[day] || []).forEach(s => {
+    // Nur Fächer anzeigen, die in dieser Woche (A oder B) aktiv sind!
+    const daySubjects = (schedule[day] || []).filter(s => isSubjectInWeek(s, d));
+
+    daySubjects.forEach(s => {
       const st = statusLog[`${iso}|${s.id}`] || 'anwesend';
       if (st === 'krank') {
         totalKrank++;
@@ -1751,8 +1721,12 @@ function renderUntisWeek() {
         statusClass = ` status-${st}`;
       }
 
+      let turnusLabel = '';
+      if (s.woche === 'A') turnusLabel = '<small style="color:var(--brand); font-weight:700; font-size:9px; margin-left:3px;">A</small>';
+      if (s.woche === 'B') turnusLabel = '<small style="color:var(--brand); font-weight:700; font-size:9px; margin-left:3px;">B</small>';
+
       item.className = 'grid-item' + statusClass + (holidayName ? ' holiday-dimmed' : '');
-      item.innerHTML = `<div class="flex-between"><strong>${escapeHtml(s.fach)}</strong><small style="color:var(--mute);">${escapeHtml(s.stunde||'')}</small></div>
+      item.innerHTML = `<div class="flex-between"><strong>${escapeHtml(s.fach)}${turnusLabel}</strong><small style="color:var(--mute);">${escapeHtml(s.stunde||'')}</small></div>
         <span style="color:var(--mute);">${escapeHtml(s.nachname)}</span>
         ${badge}`;
       item.addEventListener('click', () => openCellModal(iso, day, s, st));
@@ -1820,22 +1794,30 @@ function openDayModal(iso, day) {
   document.getElementById('dayModalTitle').textContent = `${day}, ${getSafeDateStrings(iso).dateStr}`;
   const list = document.getElementById('dayModalSubjectList');
   list.innerHTML = '';
-  (schedule[day] || []).forEach(s => {
-    const cur = statusLog[`${iso}|${s.id}`] || 'anwesend';
-    const row = document.createElement('div');
-    row.className = 'flex-between';
-    row.style.fontSize = '0.75rem';
-    row.innerHTML = `<span><strong>${escapeHtml(s.fach)}</strong> (${escapeHtml(s.stunde||'')})</span>
-      <select class="day-sel input-box" data-id="${s.id}" style="width:auto; padding:0.2rem 0.4rem;">
-        <option value="anwesend" ${cur==='anwesend'?'selected':''}>Anwesend</option>
-        <option value="krank" ${cur==='krank'?'selected':''}>Krank</option>
-        <option value="verspaetung" ${cur==='verspaetung'?'selected':''}>Verspätung (m. Entsch.)</option>
-        <option value="verspaetung_ohne" ${cur==='verspaetung_ohne'?'selected':''}>Verspätung (ohne Entsch.)</option>
-        <option value="passiv" ${cur==='passiv'?'selected':''}>Sportbefreiung</option>
-        <option value="entfaellt" ${cur==='entfaellt'?'selected':''}>Entfällt</option>
-      </select>`;
-    list.appendChild(row);
-  });
+  
+  // Nur aktive Fächer für diese Woche
+  const subjects = (schedule[day] || []).filter(s => isSubjectInWeek(s, iso));
+
+  if (subjects.length === 0) {
+    list.innerHTML = `<p style="font-size:0.75rem; color:var(--mute); text-align:center; padding:1rem;">Kein Unterricht für diesen Tag/Turnus hinterlegt.</p>`;
+  } else {
+    subjects.forEach(s => {
+      const cur = statusLog[`${iso}|${s.id}`] || 'anwesend';
+      const row = document.createElement('div');
+      row.className = 'flex-between';
+      row.style.fontSize = '0.75rem';
+      row.innerHTML = `<span><strong>${escapeHtml(s.fach)}</strong> (${escapeHtml(s.stunde||'')})</span>
+        <select class="day-sel input-box" data-id="${s.id}" style="width:auto; padding:0.2rem 0.4rem;">
+          <option value="anwesend" ${cur==='anwesend'?'selected':''}>Anwesend</option>
+          <option value="krank" ${cur==='krank'?'selected':''}>Krank</option>
+          <option value="verspaetung" ${cur==='verspaetung'?'selected':''}>Verspätung (m. Entsch.)</option>
+          <option value="verspaetung_ohne" ${cur==='verspaetung_ohne'?'selected':''}>Verspätung (ohne Entsch.)</option>
+          <option value="passiv" ${cur==='passiv'?'selected':''}>Sportbefreiung</option>
+          <option value="entfaellt" ${cur==='entfaellt'?'selected':''}>Entfällt</option>
+        </select>`;
+      list.appendChild(row);
+    });
+  }
   document.getElementById('dayModal').classList.remove('hidden');
 }
 document.querySelectorAll('.day-set-status-btn').forEach(b => {
@@ -1860,9 +1842,11 @@ document.getElementById('dayModalSaveBtn').addEventListener('click', () => {
 document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
   if (!activeDay) return;
   const items = [];
+  const subjects = (schedule[activeDay.day] || []).filter(s => isSubjectInWeek(s, activeDay.iso));
+
   document.querySelectorAll('.day-sel').forEach(sel => {
     if (sel.value === 'krank' || sel.value === 'passiv' || sel.value === 'verspaetung') {
-      const s = (schedule[activeDay.day]||[]).find(x => x.id === sel.dataset.id);
+      const s = subjects.find(x => x.id === sel.dataset.id);
       if (s) items.push({ fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: sel.value });
     }
   });
@@ -1888,16 +1872,12 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   saveStudent(student);
 
   const day = daySelect.value;
-  const nowD = new Date();
-  let diff = (['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'].indexOf(day) + 1) - nowD.getDay();
-  if (diff < 0) diff += 7;
-  const target = new Date(nowD); 
-  target.setDate(nowD.getDate() + diff);
+  const target = getTargetDateForWeekday(day);
   const iso = toIsoDate(target);
   const dateStr = target.toLocaleDateString('de-DE');
 
   const checked = [...document.querySelectorAll('.subj-check:checked')].map(c => c.dataset.id);
-  const chosen = (schedule[day] || []).filter(s => checked.includes(s.id));
+  const chosen = (schedule[day] || []).filter(s => isSubjectInWeek(s, target) && checked.includes(s.id));
   if (chosen.length === 0) return alert("Kein Fach ausgewählt.");
 
   const meldeArt = document.querySelector('input[name="meldeArt"]:checked').value;
@@ -2071,28 +2051,26 @@ function calculateAndRenderStats() {
   const period = statsPeriodSelect.value;
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1 - 12
+  const currentMonth = now.getMonth() + 1;
 
-  // Ermittlung der Grenzen
   let minDate = '1970-01-01', maxDate = '2099-12-31';
 
-  // Schuljahr-Berechnung (Beginn 1. August, Ende 31. Juli)
   const schoolStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
   const schoolEndYear = schoolStartYear + 1;
 
   if (period === 'cur_halbjahr') {
-    if (currentMonth >= 8 || currentMonth === 1) { // 1. Halbjahr: Aug - Jan
+    if (currentMonth >= 8 || currentMonth === 1) {
       minDate = `${schoolStartYear}-08-01`;
       maxDate = `${schoolStartYear + 1}-01-31`;
-    } else { // 2. Halbjahr: Feb - Jul
+    } else {
       minDate = `${schoolEndYear}-02-01`;
       maxDate = `${schoolEndYear}-07-31`;
     }
   } else if (period === 'last_halbjahr') {
-    if (currentMonth >= 8 || currentMonth === 1) { // Vorheriges war 2. HJ des Vorjahres
+    if (currentMonth >= 8 || currentMonth === 1) {
       minDate = `${schoolStartYear}-02-01`;
       maxDate = `${schoolStartYear}-07-31`;
-    } else { // Vorheriges war 1. HJ dieses Jahres
+    } else {
       minDate = `${schoolStartYear}-08-01`;
       maxDate = `${schoolStartYear + 1}-01-31`;
     }
@@ -2101,7 +2079,6 @@ function calculateAndRenderStats() {
     maxDate = `${schoolEndYear}-07-31`;
   }
 
-  // Finde alle Fächer-Referenzen aus dem Stundenplan
   const subjectMap = {};
   WEEKDAYS.forEach(day => {
     (schedule[day] || []).forEach(s => {
@@ -2117,7 +2094,7 @@ function calculateAndRenderStats() {
   let totalPassiv = 0;
   let totalVerspCount = 0;
 
-  const subjectStats = {}; // fach -> { total, excused, unexcused, passiv }
+  const subjectStats = {};
 
   Object.entries(statusLog).forEach(([key, st]) => {
     const [iso, subjId] = key.split('|');
@@ -2246,6 +2223,11 @@ function renderScheduleEditor() {
         <input class="schedule-input" value="${escapeAttr(s.nachname)}" placeholder="Nachname" data-field="nachname">
         <input class="schedule-input" type="email" value="${escapeAttr(s.email)}" placeholder="E-Mail" data-field="email">
         <input class="schedule-input" value="${escapeAttr(s.stunde || '')}" placeholder="Std." data-field="stunde">
+        <select class="schedule-input" data-field="woche" title="A- / B-Wochenturnus">
+          <option value="alle" ${(!s.woche || s.woche === 'alle') ? 'selected' : ''}>Jede Woche</option>
+          <option value="A" ${s.woche === 'A' ? 'selected' : ''}>A-Woche (ungerade)</option>
+          <option value="B" ${s.woche === 'B' ? 'selected' : ''}>B-Woche (gerade)</option>
+        </select>
         <button type="button" class="btn-del-subject" title="Fach entfernen">✕</button>
       `;
 
@@ -2269,7 +2251,7 @@ function renderScheduleEditor() {
 
     block.querySelector(`[data-add-to="${day}"]`).addEventListener('click', () => {
       openScheduleDays.add(day);
-      schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '' });
+      schedule[day].push({ id: cryptoId(), fach: '', anrede: 'Frau', nachname: '', email: '', stunde: '', woche: 'alle' });
       renderScheduleEditor();
       const ind = document.getElementById('scheduleSaveIndicator');
       if (ind) ind.textContent = '● Nicht gespeicherte Änderungen';
@@ -2326,7 +2308,6 @@ document.getElementById('resetAbsencesBtn').addEventListener('click', async () =
     saveReminders(reminders);
     saveProofsArchive(proofsArchive);
 
-    // Lösche auch den IndexedDB-Speicher
     try {
       const db = await openDB();
       const tx = db.transaction(STORE_PROOFS, 'readwrite');
