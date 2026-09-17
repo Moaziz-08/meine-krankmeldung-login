@@ -505,7 +505,7 @@
 
 <script>
 /* ---------------------------------------------------------------------
-   Firebase Initialisierung
+   Firebase Initialisierung[cite: 2]
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAKxyP5jspdjKEyOLcRaLvoTffWUkR_148",
@@ -980,41 +980,125 @@ function renderReminders() {
 }
 renderReminders();
 
+/* Zuverlässiges Druck-Popup mit Schließen-/Zurück-Leiste */
 function openPrint(r) {
   const win = window.open('', '_blank');
-  if (!win) return alert("Popup blockiert.");
+  if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
+
   const safe = getSafeDateStrings(r.isoDate || new Date());
   const dl = getDeadlineInfo(r.isoDate);
   const rows = (r.items || []).filter(i => i.status !== 'entfaellt').map(i => `
     <tr>
-      <td style="padding:4px; border-bottom:1px solid #ddd; font-weight:bold; color:#146B69;">${escapeHtml(i.stunde||'–')}. Std.</td>
-      <td style="padding:4px; border-bottom:1px solid #ddd;">${escapeHtml(i.fach)}</td>
-      <td style="padding:4px; border-bottom:1px solid #ddd; text-align:right;">${escapeHtml(i.lehrer||'')}</td>
+      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; font-weight:bold; color:#146B69;">${escapeHtml(i.stunde||'–')}. Std.</td>
+      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0;">${escapeHtml(i.fach)}</td>
+      <td style="padding:5px 6px; border-bottom:1px solid #E2E8F0; text-align:right; color:#64748B;">${escapeHtml(i.lehrer||'')}</td>
     </tr>
   `).join('');
 
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Entschuldigung</title>
+  win.document.write(`<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entschuldigung drucken</title>
   <style>
-    body { font-family: sans-serif; display: flex; justify-content: center; padding: 20px; background: #f0f0f0; }
-    .ticket { width: 140mm; height: 100mm; background: #fff; border: 1px dashed #999; padding: 8mm 10mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #1E293B; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px 10px; }
+    
+    .nav-bar {
+      width: 100%;
+      max-width: 140mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      gap: 10px;
+    }
+    .nav-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #CBD5E1;
+      background: #FFFFFF;
+      color: #1E293B;
+    }
+    .nav-btn-primary {
+      background: #146B69;
+      color: #FFFFFF;
+      border-color: #146B69;
+    }
+
+    .ticket {
+      width: 140mm;
+      height: 100mm;
+      background: #FFFFFF;
+      border: 1px dashed #94A3B8;
+      border-radius: 4px;
+      padding: 8mm 10mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 8pt;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
     table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin: 4px 0; }
-    @media print { body { background: #fff; padding:0; } button { display:none; } }
-  </style></head><body>
+    th { text-align: left; font-size: 6.5pt; text-transform: uppercase; color: #64748B; padding: 2px 6px; border-bottom: 1px solid #CBD5E1; }
+
+    @media print {
+      body { background: #FFFFFF; padding: 0; }
+      .nav-bar { display: none !important; }
+      .ticket { border: 1px dashed #999; box-shadow: none; width: 140mm; height: 100mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <button class="nav-btn" onclick="if(window.history.length > 1) { window.history.back(); } else { window.close(); }">
+      ✕ Zurück zur App
+    </button>
+    <button class="nav-btn nav-btn-primary" onclick="window.print()">
+      🖨 Jetzt drucken
+    </button>
+  </div>
+
   <div class="ticket">
     <div style="display:flex; justify-content:space-between; border-bottom:1.5px solid #146B69; padding-bottom:3px;">
-      <strong style="font-size:11pt; color:#146B69;">Entschuldigung</strong>
-      <div style="text-align:right;">Datum: <b>${escapeHtml(safe.longStr)}</b><br><span style="color:#B4432F;">Frist: ${escapeHtml(dl.dlStr)}</span></div>
+      <div>
+        <strong style="font-size:11pt; color:#146B69;">Entschuldigung</strong>
+        <p style="font-size:6.5pt; color:#64748B;">Vorlage für Lehrkräfte</p>
+      </div>
+      <div style="text-align:right; font-size:7pt;">
+        Datum: <strong>${escapeHtml(safe.longStr)}</strong><br>
+        <span style="color:#B4432F; font-weight:bold;">Frist: ${escapeHtml(dl.dlStr)}</span>
+      </div>
     </div>
-    <div style="background:#f8f9fa; padding:3px 6px; border-radius:4px;">Schüler/in: <b>${escapeHtml(r.name||student.name)}</b> (Klasse ${escapeHtml(r.klasse||student.klasse)})</div>
-    <table><thead><tr><th align="left">Std.</th><th align="left">Fach</th><th align="right">Lehrkraft</th></tr></thead><tbody>${rows}</tbody></table>
-    <p>Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben genannten Unterricht aus gesundheitlichen Gründen zu entschuldigen.</p>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center;">
-      <div style="border-top:1px solid #666; padding-top:2px;">Ort, Datum</div>
-      <div style="border-top:1px solid #666; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
+
+    <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:4px 8px; border-radius:4px; font-size:7.5pt; display:flex; gap:12px;">
+      <div>Schüler/in: <strong>${escapeHtml(r.name||student.name||'–')}</strong></div>
+      <div>Klasse: <strong>${escapeHtml(r.klasse||student.klasse||'–')}</strong></div>
+      <div>Grund: <strong>Krankheit</strong></div>
+    </div>
+
+    <div style="flex-grow:1; overflow:hidden;">
+      <table>
+        <thead><tr><th>Std.</th><th>Fach</th><th style="text-align:right;">Lehrkraft</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <p style="font-size:7pt; color:#334155; line-height:1.35;">
+      Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus gesundheitlichen Gründen zu entschuldigen.
+    </p>
+
+    <div style="display:grid; grid-template-columns:1fr 1.3fr; gap:20px; text-align:center; font-size:6.5pt; color:#64748B; margin-top:2px;">
+      <div style="border-top:1px solid #475569; padding-top:2px;">Ort, Datum</div>
+      <div style="border-top:1px solid #475569; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
     </div>
   </div>
-  <div style="margin-top:20px;"><button onclick="window.print()" style="padding:8px 16px; background:#146B69; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Drucken</button></div>
-  </body></html>`);
+</body>
+</html>`);
   win.document.close();
 }
 
