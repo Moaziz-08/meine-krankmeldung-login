@@ -563,7 +563,6 @@ try {
   console.warn("Firebase Offline-Modus:", e);
 }
 
-/* Wichtig: Ohne { merge: true }, damit gelöschte Einträge (z.B. StatusLog oder Nachweise) korrekt in der Cloud gelöscht werden */
 function syncWithCloud() {
   if (isSyncingFromCloud) return;
 
@@ -975,7 +974,7 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Zuverlässiges Druck-Popup mit Design-Templates & Zurück-Button */
+/* Druck-Vorschau mit Template-Wahl ohne Script-Konflikte */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -990,7 +989,7 @@ function openPrint(r) {
     </tr>
   `).join('');
 
-  win.document.write(`<!DOCTYPE html>
+  const docContent = `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -999,80 +998,34 @@ function openPrint(r) {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #1E293B; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px 10px; }
-    
-    .nav-bar {
-      width: 100%;
-      max-width: 140mm;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    .nav-bar { width: 100%; max-width: 140mm; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-wrap: wrap; }
     .nav-group { display: flex; gap: 6px; }
-    .nav-btn {
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid #CBD5E1;
-      background: #FFFFFF;
-      color: #1E293B;
-    }
-    .nav-btn.active {
-      background: #146B69;
-      color: #FFFFFF;
-      border-color: #146B69;
-    }
-    .nav-btn-primary {
-      background: #146B69;
-      color: #FFFFFF;
-      border-color: #146B69;
-    }
+    .nav-btn { padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #1E293B; }
+    .nav-btn.active { background: #146B69; color: #FFFFFF; border-color: #146B69; }
+    .nav-btn-primary { background: #146B69; color: #FFFFFF; border-color: #146B69; }
 
-    /* Template 1: Modern & Clean (Standard) */
-    .ticket.t-modern {
-      background: #FFFFFF; border: 1px dashed #94A3B8; color: #1E293B;
-    }
+    .ticket.t-modern { background: #FFFFFF; border: 1px dashed #94A3B8; color: #1E293B; }
     .ticket.t-modern .t-header { border-bottom: 1.5px solid #146B69; }
     .ticket.t-modern .t-title { color: #146B69; }
     .ticket.t-modern .t-badge { background: #F8FAFC; border: 1px solid #E2E8F0; }
     .ticket.t-modern th { color: #64748B; border-bottom: 1px solid #CBD5E1; }
     .ticket.t-modern td { color: #146B69; }
 
-    /* Template 2: Klassisch & Formal */
-    .ticket.t-classic {
-      background: #FFFDF9; border: 2px solid #334155; color: #0F172A; font-family: 'Times New Roman', serif;
-    }
+    .ticket.t-classic { background: #FFFDF9; border: 2px solid #334155; color: #0F172A; font-family: 'Times New Roman', serif; }
     .ticket.t-classic .t-header { border-bottom: 2px solid #334155; }
     .ticket.t-classic .t-title { color: #0F172A; text-transform: uppercase; letter-spacing: 1px; font-size: 12pt; }
     .ticket.t-classic .t-badge { background: #F1F5F9; border: 1px solid #94A3B8; }
     .ticket.t-classic th { color: #0F172A; border-bottom: 1.5px solid #334155; }
     .ticket.t-classic td { color: #0F172A; }
 
-    /* Template 3: Minimalistisch S/W */
-    .ticket.t-minimal {
-      background: #FFFFFF; border: 1px solid #000000; color: #000000;
-    }
+    .ticket.t-minimal { background: #FFFFFF; border: 1px solid #000000; color: #000000; }
     .ticket.t-minimal .t-header { border-bottom: 1px solid #000000; }
     .ticket.t-minimal .t-title { color: #000000; font-weight: 900; }
     .ticket.t-minimal .t-badge { background: #FFFFFF; border: 1px solid #000000; }
     .ticket.t-minimal th { color: #000000; border-bottom: 1px solid #000000; }
     .ticket.t-minimal td { color: #000000; font-weight: bold; }
 
-    .ticket {
-      width: 140mm;
-      height: 100mm;
-      border-radius: 4px;
-      padding: 8mm 10mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      font-size: 8pt;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
+    .ticket { width: 140mm; height: 100mm; border-radius: 4px; padding: 8mm 10mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 8pt; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
     table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin: 4px 0; }
     th { text-align: left; font-size: 6.5pt; text-transform: uppercase; padding: 2px 6px; }
 
@@ -1089,9 +1042,9 @@ function openPrint(r) {
       ✕ Zurück zur App
     </button>
     <div class="nav-group">
-      <button class="nav-btn active" id="btnMod" onclick="setTemplate('t-modern', this)">Modern</button>
-      <button class="nav-btn" id="btnCls" onclick="setTemplate('t-classic', this)">Klassisch</button>
-      <button class="nav-btn" id="btnMin" onclick="setTemplate('t-minimal', this)">Minimal</button>
+      <button class="nav-btn active" id="btnMod" onclick="window.setTemplate('t-modern', this)">Modern</button>
+      <button class="nav-btn" id="btnCls" onclick="window.setTemplate('t-classic', this)">Klassisch</button>
+      <button class="nav-btn" id="btnMin" onclick="window.setTemplate('t-minimal', this)">Minimal</button>
     </div>
     <button class="nav-btn nav-btn-primary" onclick="window.print()">
       🖨 Drucken
@@ -1132,18 +1085,20 @@ function openPrint(r) {
       <div style="border-top:1px solid currentColor; padding-top:2px;">Unterschrift Erziehungsberechtigte/r</div>
     </div>
   </div>
-
-  <script>
-    function setTemplate(className, btn) {
-      const box = document.getElementById('ticketBox');
-      box.className = 'ticket ' + className;
-      document.querySelectorAll('.nav-group .nav-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    }
-  </script>
 </body>
-</html>`);
+</html>`;
+
+  win.document.open();
+  win.document.write(docContent);
   win.document.close();
+
+  // Template-Funktion sicher nach dem Rendering anbinden
+  win.setTemplate = function(className, btn) {
+    const box = win.document.getElementById('ticketBox');
+    if (box) box.className = 'ticket ' + className;
+    win.document.querySelectorAll('.nav-group .nav-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  };
 }
 
 let curMonday = new Date();
@@ -1407,7 +1362,7 @@ document.getElementById('deleteProofDetailBtn').addEventListener('click', () => 
 
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor – stabiles Tippen ohne Fokus-Verlust */
+/* Schedule Editor */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1499,18 +1454,16 @@ function escapeAttr(str) {
 
 renderScheduleEditor();
 
-/* ---------------------------------------------------------------------
-   Gefahrenbereich: Fehlzeiten & Nachweise zurücksetzen mit PIN
---------------------------------------------------------------------- */
+/* Gefahrenbereich mit PIN */
 document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
-  const enteredPin = prompt("Gib den 4-stelligen Bestätigungscode ein, um alle Fehlzeiten & Nachweise zu löschen (Standard: 1234):");
+  const enteredPin = prompt("Gib den 4-stelligen Bestätigungscode ein (Standard: 1234):");
   if (enteredPin === null) return;
 
   if (enteredPin.trim() !== securityPin) {
     return alert("Falscher Code! Vorgang abgebrochen.");
   }
 
-  if (confirm("Bist du dir ganz sicher? Alle gefehlten Stunden, Entschuldigungen und Fotos werden jetzt auf allen Geräten gelöscht!")) {
+  if (confirm("Bist du dir ganz sicher? Alle Fehlzeiten, Entschuldigungen und Fotos werden jetzt auf allen Geräten gelöscht!")) {
     statusLog = {};
     reminders = [];
     proofsArchive = [];
