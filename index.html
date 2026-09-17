@@ -154,8 +154,40 @@
     .status-entfaellt { border-style: dashed; opacity: 0.7; background: #e2e8f0; text-decoration: line-through; }
     .status-done { border-color: rgba(21,128,61,0.5); background: rgba(220,252,231,0.4); border-left: 4px solid var(--ok); }
 
+    /* Nachweise 4er-Raster */
+    .archive-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+    }
+    @media (min-width: 640px) {
+      .archive-grid-4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .archive-thumb-card {
+      border: 1px solid var(--line);
+      border-radius: 0.65rem;
+      background: var(--surface);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+    .archive-thumb-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--brand);
+    }
+    .archive-thumb-img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      background: var(--canvas);
+    }
+
     .modal-backdrop { position: fixed; inset: 0; background: rgba(27,36,48,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
-    .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 440px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); }
+    .modal-card { background: var(--surface); border-radius: 1.1rem; max-width: 580px; width: 100%; padding: 1.25rem; border: 1px solid var(--line); max-height: 90vh; overflow-y: auto; }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -329,13 +361,24 @@
     <div class="card">
       <div class="flex-between" style="margin-bottom:1rem;">
         <h2 style="font-size:1.05rem; font-weight:700; color:var(--ink);">Regulärer Stundenplan</h2>
-        <span style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert & synchronisiert automatisch</span>
+        <span id="scheduleSaveIndicator" style="font-size:0.75rem; color:var(--brand); font-weight:600;">✓ Speichert automatisch</span>
       </div>
       <div id="scheduleEditor"></div>
     </div>
 
-    <div style="display:flex; gap:0.5rem;">
-      <button id="resetSettings" class="btn-sub" style="width:100%; color:var(--bad); border-color:rgba(180,67,47,0.3);">Stundenplan auf Standard zurücksetzen</button>
+    <div class="card" style="border-color: rgba(180,67,47,0.3); background: #fffaf9;">
+      <h2 style="font-size:0.95rem; font-weight:700; color:var(--bad); margin-bottom:0.4rem;">Gefahr-Bereich: Fehlzeiten & Nachweise leeren</h2>
+      <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">
+        Löscht alle Fehlzeiten-Logs, Entschuldigungs-Zettel und hochgeladenen Belege. Dein regulärer Stundenplan bleibt vollständig erhalten.
+      </p>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button id="resetAbsencesBtn" class="btn-sub" style="color:var(--bad); border-color:var(--bad); font-weight:700;">
+          🗑 Fehlzeiten & Nachweise zurücksetzen
+        </button>
+        <button id="changePinBtn" class="btn-sub" style="color:var(--mute);">
+          PIN ändern
+        </button>
+      </div>
     </div>
   </section>
 
@@ -343,7 +386,7 @@
 
 <!-- Modal: Auth / Sync -->
 <div id="authModal" class="modal-backdrop hidden">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:380px;">
     <div class="flex-between" style="margin-bottom:1rem;">
       <div>
         <h3 style="font-size:1rem; font-weight:700;">Cloud-Sync Konto</h3>
@@ -379,7 +422,7 @@
 
 <!-- Modal: Einzelstunde bearbeiten -->
 <div id="cellModal" class="modal-backdrop hidden">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:380px;">
     <h3 id="modalTitle" style="font-size:1rem; font-weight:700;">Stunde bearbeiten</h3>
     <p id="modalSub" style="font-size:0.75rem; color:var(--mute); margin-bottom:1rem;">–</p>
     
@@ -422,14 +465,41 @@
   </div>
 </div>
 
-<!-- Modal: Nachweise-Archiv -->
+<!-- Modal: Nachweise-Archiv (4er Raster) -->
 <div id="archiveModal" class="modal-backdrop hidden">
-  <div class="modal-card" style="max-width:600px; max-height:85vh; display:flex; flex-direction:column;">
+  <div class="modal-card">
     <div class="flex-between" style="border-bottom:1px solid var(--line); padding-bottom:0.5rem; margin-bottom:0.75rem;">
       <h3 style="font-size:1rem; font-weight:700;">📁 Nachweise-Ordner</h3>
       <button id="closeArchiveBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
     </div>
-    <div id="archiveContent" style="overflow-y:auto; flex:1;"></div>
+    <p style="font-size:0.75rem; color:var(--mute); margin-bottom:0.75rem;">Klicke auf ein Bild, um Details und Vollansicht anzuzeigen:</p>
+    <div id="archiveContent" class="archive-grid-4"></div>
+  </div>
+</div>
+
+<!-- Modal: Nachweis Detailansicht -->
+<div id="proofDetailModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:500px;">
+    <div class="flex-between" style="margin-bottom:0.75rem;">
+      <h3 id="detailDate" style="font-size:1.05rem; font-weight:700;">–</h3>
+      <button id="closeDetailModalBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+    </div>
+    <div style="background:var(--canvas); border-radius:0.75rem; overflow:hidden; margin-bottom:0.8rem; border:1px solid var(--line);">
+      <img id="detailImg" src="" style="width:100%; max-height:320px; object-fit:contain; display:block;">
+    </div>
+    <div style="background:#F8FAFC; border:1px solid var(--line); border-radius:0.75rem; padding:0.75rem; font-size:0.8rem; margin-bottom:1rem;">
+      <p style="margin-bottom:0.25rem;"><strong>Schüler/in:</strong> <span id="detailStudent">–</span></p>
+      <p style="margin-bottom:0.25rem;"><strong>Fächer:</strong></p>
+      <ul id="detailItems" style="padding-left:1.2rem; color:var(--ink); line-height:1.4;"></ul>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button id="deleteProofDetailBtn" class="btn-sub" style="color:var(--bad); border-color:rgba(180,67,47,0.3); flex:1;">
+        🗑 Nachweis löschen
+      </button>
+      <button id="closeDetailModalBtn2" class="btn-sub" style="flex:1;">
+        Schließen
+      </button>
+    </div>
   </div>
 </div>
 
@@ -449,6 +519,7 @@ const firebaseConfig = {
 let auth = null, db = null, currentUser = null, unsubscribeDoc = null;
 let isSyncingFromCloud = false;
 let localLastUpdated = 0;
+let debounceTimer = null;
 
 try {
   if (window.firebase) {
@@ -472,7 +543,6 @@ try {
         authUserInfo.classList.remove('hidden');
         authUserEmail.textContent = user.email;
 
-        // Echtzeit-Listener: Lauscht auf Cloud-Änderungen von anderen Geräten
         const userRef = db.collection('users').doc(user.uid);
         unsubscribeDoc = userRef.onSnapshot((docSnap) => {
           if (docSnap.exists) {
@@ -490,12 +560,11 @@ try {
     });
   }
 } catch (e) {
-  console.warn("Firebase konnte nicht initialisiert werden (Offline-Modus):", e);
+  console.warn("Firebase Offline-Modus:", e);
 }
 
-/* Vollständige Synchronisation mit Echo-Schutz */
 function syncWithCloud() {
-  if (isSyncingFromCloud) return; // Verhindert Endlosschleifen beim Empfangen
+  if (isSyncingFromCloud) return;
 
   if (db && currentUser) {
     const ts = Date.now();
@@ -517,12 +586,10 @@ function pushAllToCloud() { syncWithCloud(); }
 
 function applyCloudData(data) {
   if (!data) return;
-
-  // Ältere Pakete ignorieren
   if (data.lastUpdated && data.lastUpdated < localLastUpdated) return;
   if (data.lastUpdated) localLastUpdated = data.lastUpdated;
 
-  isSyncingFromCloud = true; // Sperre für ausgehende Speicher-Events aktivieren
+  isSyncingFromCloud = true;
 
   try {
     if (data.schedule) { 
@@ -561,7 +628,7 @@ function applyCloudData(data) {
   }
 }
 
-/* Auth Modal Handlers */
+/* Auth Handlers */
 document.getElementById('authBtn').addEventListener('click', () => document.getElementById('authModal').classList.remove('hidden'));
 document.getElementById('closeAuthModalBtn').addEventListener('click', () => document.getElementById('authModal').classList.add('hidden'));
 
@@ -613,9 +680,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   if (auth) auth.signOut();
 });
 
-/* ---------------------------------------------------------------------
-   Bild-Komprimierung
---------------------------------------------------------------------- */
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -649,6 +713,7 @@ const LS_SETTINGS = 'krankmelden_settings';
 const LS_REMINDERS = 'krankmelden_erinnerungen';
 const LS_STATUS_LOG = 'krankmelden_status_log';
 const LS_PROOFS = 'krankmelden_proofs_archive';
+const LS_SECURITY_PIN = 'krankmelden_security_pin';
 
 const DEFAULT_SCHEDULE = {
   Montag: [
@@ -689,6 +754,7 @@ let settings = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { apiE
 let reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || 'null') || [];
 let statusLog = JSON.parse(localStorage.getItem(LS_STATUS_LOG) || 'null') || {};
 let proofsArchive = JSON.parse(localStorage.getItem(LS_PROOFS) || 'null') || [];
+let securityPin = localStorage.getItem(LS_SECURITY_PIN) || '1234';
 
 function saveSchedule(s) { localStorage.setItem(LS_SCHEDULE, JSON.stringify(s)); syncWithCloud(); }
 function saveStudent(s) { localStorage.setItem(LS_STUDENT, JSON.stringify(s)); syncWithCloud(); }
@@ -696,6 +762,20 @@ function saveSettings(s) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
 function saveReminders(r) { localStorage.setItem(LS_REMINDERS, JSON.stringify(r)); syncWithCloud(); }
 function saveStatusLog(l) { localStorage.setItem(LS_STATUS_LOG, JSON.stringify(l)); syncWithCloud(); }
 function saveProofsArchive(p) { localStorage.setItem(LS_PROOFS, JSON.stringify(p)); syncWithCloud(); }
+
+function triggerScheduleSave() {
+  const ind = document.getElementById('scheduleSaveIndicator');
+  if (ind) ind.textContent = '💾 Speichere...';
+
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    saveSchedule(schedule);
+    renderSubjects();
+    renderUntisWeek();
+    if (ind) ind.textContent = '✓ Gespeichert';
+    setTimeout(() => { if (ind) ind.textContent = '✓ Speichert automatisch'; }, 1500);
+  }, 400);
+}
 
 function toIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -766,8 +846,8 @@ function renderSubjects() {
     row.innerHTML = `
       <input type="checkbox" class="subj-check" data-id="${s.id}" checked>
       <div style="flex:1; min-width:0;">
-        <span style="font-weight:600; font-size:0.875rem;">${s.fach} (${s.stunde||''}. Std.)</span>
-        <span style="display:block; font-size:0.75rem; color:var(--mute);">${s.anrede} ${s.nachname} · ${s.email}</span>
+        <span style="font-weight:600; font-size:0.875rem;">${escapeHtml(s.fach)} (${escapeHtml(s.stunde||'')}. Std.)</span>
+        <span style="display:block; font-size:0.75rem; color:var(--mute);">${escapeHtml(s.anrede)} ${escapeHtml(s.nachname)} · ${escapeHtml(s.email)}</span>
       </div>
     `;
     list.appendChild(row);
@@ -787,7 +867,6 @@ document.querySelectorAll('input[name="meldeArt"]').forEach(r => {
   });
 });
 
-/* Automatische Speicherung bei Eingabe */
 const stuNameInp = document.getElementById('stuName');
 const stuKlasseInp = document.getElementById('stuKlasse');
 
@@ -819,8 +898,11 @@ function syncReminderForDate(iso, dayName) {
   const sick = [];
   subs.forEach(s => {
     const st = statusLog[`${iso}|${s.id}`];
-    if (st === 'krank' || st === 'passiv') sick.push({ id: s.id, fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: st });
+    if (st === 'krank' || st === 'passiv') {
+      sick.push({ id: s.id, fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: st });
+    }
   });
+
   const idx = reminders.findIndex(r => r.isoDate === iso);
   if (sick.length === 0) {
     if (idx !== -1) { 
@@ -854,7 +936,7 @@ function renderReminders() {
         <div>
           <strong style="font-size:0.875rem;">Schriftliche Entschuldigung abgeben</strong>
           <span style="display:block; font-size:0.75rem; color:${dl.color}; font-weight:700;">${dl.text}</span>
-          <span style="font-size:0.75rem; color:var(--mute);">${r.longStr} (${(r.items||[]).map(i=>i.fach).join(', ')})</span>
+          <span style="font-size:0.75rem; color:var(--mute);">${r.longStr} (${(r.items||[]).map(i=>escapeHtml(i.fach)).join(', ')})</span>
         </div>
         <div style="display:flex; gap:0.4rem;">
           <button class="btn-sub print-btn">Drucken</button>
@@ -869,7 +951,7 @@ function renderReminders() {
     card.querySelector('.proof-in').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & lade in Cloud hoch...</div>`;
+      card.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--brand);">Komprimiere & lade hoch...</div>`;
       
       const base64 = await compressImage(file);
       const proofRecord = { 
@@ -905,9 +987,9 @@ function openPrint(r) {
   const dl = getDeadlineInfo(r.isoDate);
   const rows = (r.items || []).filter(i => i.status !== 'entfaellt').map(i => `
     <tr>
-      <td style="padding:4px; border-bottom:1px solid #ddd; font-weight:bold; color:#146B69;">${i.stunde||'–'}. Std.</td>
-      <td style="padding:4px; border-bottom:1px solid #ddd;">${i.fach}</td>
-      <td style="padding:4px; border-bottom:1px solid #ddd; text-align:right;">${i.lehrer||''}</td>
+      <td style="padding:4px; border-bottom:1px solid #ddd; font-weight:bold; color:#146B69;">${escapeHtml(i.stunde||'–')}. Std.</td>
+      <td style="padding:4px; border-bottom:1px solid #ddd;">${escapeHtml(i.fach)}</td>
+      <td style="padding:4px; border-bottom:1px solid #ddd; text-align:right;">${escapeHtml(i.lehrer||'')}</td>
     </tr>
   `).join('');
 
@@ -921,9 +1003,9 @@ function openPrint(r) {
   <div class="ticket">
     <div style="display:flex; justify-content:space-between; border-bottom:1.5px solid #146B69; padding-bottom:3px;">
       <strong style="font-size:11pt; color:#146B69;">Entschuldigung</strong>
-      <div style="text-align:right;">Datum: <b>${safe.longStr}</b><br><span style="color:#B4432F;">Frist: ${dl.dlStr}</span></div>
+      <div style="text-align:right;">Datum: <b>${escapeHtml(safe.longStr)}</b><br><span style="color:#B4432F;">Frist: ${escapeHtml(dl.dlStr)}</span></div>
     </div>
-    <div style="background:#f8f9fa; padding:3px 6px; border-radius:4px;">Schüler/in: <b>${r.name||student.name}</b> (Klasse ${r.klasse||student.klasse})</div>
+    <div style="background:#f8f9fa; padding:3px 6px; border-radius:4px;">Schüler/in: <b>${escapeHtml(r.name||student.name)}</b> (Klasse ${escapeHtml(r.klasse||student.klasse)})</div>
     <table><thead><tr><th align="left">Std.</th><th align="left">Fach</th><th align="right">Lehrkraft</th></tr></thead><tbody>${rows}</tbody></table>
     <p>Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben genannten Unterricht aus gesundheitlichen Gründen zu entschuldigen.</p>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center;">
@@ -998,8 +1080,8 @@ function renderUntisWeek() {
       }
 
       item.className = 'grid-item' + statusClass;
-      item.innerHTML = `<div class="flex-between"><strong>${s.fach}</strong><small style="color:var(--mute);">${s.stunde||''}</small></div>
-        <span style="color:var(--mute);">${s.nachname}</span>
+      item.innerHTML = `<div class="flex-between"><strong>${escapeHtml(s.fach)}</strong><small style="color:var(--mute);">${escapeHtml(s.stunde||'')}</small></div>
+        <span style="color:var(--mute);">${escapeHtml(s.nachname)}</span>
         ${badge}`;
       item.addEventListener('click', () => openCellModal(iso, day, s, st));
       col.appendChild(item);
@@ -1017,15 +1099,22 @@ function openCellModal(iso, day, s, curSt) {
   document.getElementById('modalTitle').textContent = `${s.fach} (${s.stunde||''}. Std.)`;
   document.getElementById('modalSub').textContent = `${day} · ${s.anrede} ${s.nachname}`;
   const r = document.querySelector(`input[name="modalStatus"][value="${curSt}"]`) || document.querySelector(`input[name="modalStatus"][value="anwesend"]`);
-  r.checked = true;
+  if (r) r.checked = true;
   document.getElementById('cellModal').classList.remove('hidden');
 }
 document.getElementById('modalCloseBtn').addEventListener('click', () => document.getElementById('cellModal').classList.add('hidden'));
 document.getElementById('modalSaveBtn').addEventListener('click', () => {
   if (!activeCell) return;
-  const val = document.querySelector('input[name="modalStatus"]:checked').value;
+  const selInput = document.querySelector('input[name="modalStatus"]:checked');
+  const val = selInput ? selInput.value : 'anwesend';
   const key = `${activeCell.iso}|${activeCell.s.id}`;
-  if (val === 'anwesend') delete statusLog[key]; else statusLog[key] = val;
+
+  if (val === 'anwesend') {
+    delete statusLog[key];
+  } else {
+    statusLog[key] = val;
+  }
+
   saveStatusLog(statusLog);
   syncReminderForDate(activeCell.iso, activeCell.day);
   document.getElementById('cellModal').classList.add('hidden');
@@ -1033,7 +1122,8 @@ document.getElementById('modalSaveBtn').addEventListener('click', () => {
 });
 document.getElementById('modalPrintBtn').addEventListener('click', () => {
   if (!activeCell) return;
-  const st = document.querySelector('input[name="modalStatus"]:checked').value;
+  const selInput = document.querySelector('input[name="modalStatus"]:checked');
+  const st = selInput ? selInput.value : 'anwesend';
   openPrint({ isoDate: activeCell.iso, items: [{ fach: activeCell.s.fach, stunde: activeCell.s.stunde, lehrer: `${activeCell.s.anrede} ${activeCell.s.nachname}`, status: st }] });
 });
 
@@ -1048,7 +1138,7 @@ function openDayModal(iso, day) {
     const row = document.createElement('div');
     row.className = 'flex-between';
     row.style.fontSize = '0.75rem';
-    row.innerHTML = `<span><strong>${s.fach}</strong> (${s.stunde||''})</span>
+    row.innerHTML = `<span><strong>${escapeHtml(s.fach)}</strong> (${escapeHtml(s.stunde||'')})</span>
       <select class="day-sel input-box" data-id="${s.id}" style="width:auto; padding:0.2rem 0.4rem;">
         <option value="anwesend" ${cur==='anwesend'?'selected':''}>Anwesend</option>
         <option value="krank" ${cur==='krank'?'selected':''}>Krank</option>
@@ -1068,7 +1158,11 @@ document.getElementById('dayModalSaveBtn').addEventListener('click', () => {
   if (!activeDay) return;
   document.querySelectorAll('.day-sel').forEach(sel => {
     const key = `${activeDay.iso}|${sel.dataset.id}`;
-    if (sel.value === 'anwesend') delete statusLog[key]; else statusLog[key] = sel.value;
+    if (sel.value === 'anwesend') {
+      delete statusLog[key];
+    } else {
+      statusLog[key] = sel.value;
+    }
   });
   saveStatusLog(statusLog);
   syncReminderForDate(activeDay.iso, activeDay.day);
@@ -1117,7 +1211,9 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
 });
 
-/* Archiv direkt aus Cloud-State */
+/* Archiv (4er Raster & Detailansicht) */
+let activeDetailProofId = null;
+
 document.getElementById('openArchiveBtn').addEventListener('click', () => {
   document.getElementById('archiveModal').classList.remove('hidden');
   renderArchiveUI();
@@ -1126,28 +1222,64 @@ document.getElementById('openArchiveBtn').addEventListener('click', () => {
 function renderArchiveUI() {
   const box = document.getElementById('archiveContent');
   if (!proofsArchive || proofsArchive.length === 0) { 
-    box.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--mute);">Keine Belege vorhanden.</p>'; 
+    box.className = '';
+    box.innerHTML = '<p style="text-align:center; padding:2rem; color:var(--mute); font-size:0.875rem;">Keine Belege vorhanden.</p>'; 
     return; 
   }
+  box.className = 'archive-grid-4';
   box.innerHTML = '';
-  proofsArchive.forEach(p => {
-    const d = document.createElement('div');
-    d.style.marginBottom = '1rem';
-    d.innerHTML = `<strong>${p.dateStr}</strong> - ${(p.items||[]).map(i=>i.fach).join(', ')}<br>
-      <img src="${p.image}" style="max-width:100%; border-radius:0.5rem; margin-top:0.3rem;">
-      <button class="btn-sub del-p" style="color:var(--bad); margin-top:0.3rem;">Löschen</button>`;
-    d.querySelector('.del-p').addEventListener('click', () => {
-      proofsArchive = proofsArchive.filter(x => x.id !== p.id);
-      saveProofsArchive(proofsArchive);
-      d.remove();
-      renderUntisWeek();
-    });
-    box.appendChild(d);
+
+  proofsArchive.slice().reverse().forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'archive-thumb-card';
+    card.innerHTML = `
+      <img src="${p.image}" class="archive-thumb-img" alt="Nachweis">
+      <div style="padding:0.4rem; font-size:0.75rem;">
+        <strong style="display:block; color:var(--ink); font-size:0.75rem;">${escapeHtml(p.dateStr)}</strong>
+        <span style="color:var(--mute); font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">
+          ${(p.items||[]).map(i => escapeHtml(i.fach)).join(', ')}
+        </span>
+      </div>
+    `;
+    card.addEventListener('click', () => openProofDetail(p));
+    box.appendChild(card);
   });
 }
+
+function openProofDetail(p) {
+  activeDetailProofId = p.id;
+  document.getElementById('detailDate').textContent = `${p.dateStr}`;
+  document.getElementById('detailStudent').textContent = `${p.name || '–'} (Klasse ${p.klasse || '–'})`;
+  document.getElementById('detailImg').src = p.image;
+
+  const ul = document.getElementById('detailItems');
+  ul.innerHTML = '';
+  (p.items || []).forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = `${item.fach} (${item.stunde || '–'}. Std.) – Lehrer: ${item.lehrer || '–'}`;
+    ul.appendChild(li);
+  });
+
+  document.getElementById('proofDetailModal').classList.remove('hidden');
+}
+
+document.getElementById('closeDetailModalBtn').addEventListener('click', () => document.getElementById('proofDetailModal').classList.add('hidden'));
+document.getElementById('closeDetailModalBtn2').addEventListener('click', () => document.getElementById('proofDetailModal').classList.add('hidden'));
+
+document.getElementById('deleteProofDetailBtn').addEventListener('click', () => {
+  if (!activeDetailProofId) return;
+  if (!confirm("Möchtest du diesen Beleg wirklich unwiderruflich löschen?")) return;
+
+  proofsArchive = proofsArchive.filter(x => x.id !== activeDetailProofId);
+  saveProofsArchive(proofsArchive);
+  document.getElementById('proofDetailModal').classList.add('hidden');
+  renderArchiveUI();
+  renderUntisWeek();
+});
+
 document.getElementById('closeArchiveBtn').addEventListener('click', () => document.getElementById('archiveModal').classList.add('hidden'));
 
-/* Schedule Editor – Speichert und synchronisiert bei jedem Tastenanschlag */
+/* Schedule Editor – stabiles Tippen ohne Fokus-Verlust */
 const openScheduleDays = new Set([curWeekday || 'Montag']);
 
 function renderScheduleEditor() {
@@ -1201,9 +1333,7 @@ function renderScheduleEditor() {
         inp.addEventListener('input', (e) => {
           if (isSyncingFromCloud) return;
           s[e.target.dataset.field] = e.target.value;
-          saveSchedule(schedule);
-          renderSubjects();
-          renderUntisWeek();
+          triggerScheduleSave();
         });
       });
 
@@ -1231,19 +1361,55 @@ function renderScheduleEditor() {
   });
 }
 
-function escapeAttr(str) {
+function escapeHtml(str) {
   return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str || '');
 }
 
 renderScheduleEditor();
 
-document.getElementById('resetSettings').addEventListener('click', () => {
-  if (confirm("Möchtest du den Stundenplan wirklich auf die Standardeinstellungen zurücksetzen?")) {
-    schedule = structuredClone(DEFAULT_SCHEDULE);
-    saveSchedule(schedule);
-    renderScheduleEditor();
-    renderSubjects();
+/* ---------------------------------------------------------------------
+   Gefahrenbereich: Fehlzeiten & Nachweise zurücksetzen mit PIN
+--------------------------------------------------------------------- */
+document.getElementById('resetAbsencesBtn').addEventListener('click', () => {
+  const enteredPin = prompt("Gib den 4-stelligen Bestätigungscode ein, um alle Fehlzeiten & Nachweise zu löschen (Standard: 1234):");
+  if (enteredPin === null) return;
+
+  if (enteredPin.trim() !== securityPin) {
+    return alert("Falscher Code! Vorgang abgebrochen.");
+  }
+
+  if (confirm("Bist du dir ganz sicher? Alle gefehlten Stunden, Entschuldigungen und Fotos werden jetzt auf allen Geräten gelöscht!")) {
+    statusLog = {};
+    reminders = [];
+    proofsArchive = [];
+
+    saveStatusLog(statusLog);
+    saveReminders(reminders);
+    saveProofsArchive(proofsArchive);
+
     renderUntisWeek();
+    renderReminders();
+    renderArchiveUI();
+
+    alert("✓ Alle Fehlzeiten und Belege wurden erfolgreich zurückgesetzt!");
+  }
+});
+
+document.getElementById('changePinBtn').addEventListener('click', () => {
+  const oldPin = prompt("Aktuellen Code eingeben:");
+  if (oldPin !== securityPin) return alert("Falscher aktueller Code!");
+
+  const newPin = prompt("Neuen 4-stelligen Code eingeben:");
+  if (newPin && newPin.trim().length >= 4) {
+    securityPin = newPin.trim();
+    localStorage.setItem(LS_SECURITY_PIN, securityPin);
+    alert("✓ Neuer PIN erfolgreich hinterlegt!");
+  } else {
+    alert("Der Code muss mindestens 4 Zeichen lang sein.");
   }
 });
 </script>
