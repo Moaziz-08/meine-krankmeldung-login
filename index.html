@@ -24,6 +24,8 @@
       --bad: #B4432F;
       --ok: #15803d;
       --ok-light: #dcfce7;
+      --versp-info: #d97706;
+      --versp-info-light: #fef3c7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: var(--canvas); color: var(--ink); min-height: 100vh; }
@@ -150,6 +152,7 @@
     
     .status-krank { border-color: rgba(180,67,47,0.4); background: rgba(180,67,47,0.06); border-left: 4px solid var(--bad); }
     .status-versp { border-color: rgba(196,118,42,0.4); background: rgba(196,118,42,0.1); border-left: 4px solid var(--warn); }
+    .status-versp-info { border-color: rgba(217,119,6,0.35); background: rgba(254,243,199,0.5); border-left: 4px solid var(--versp-info); }
     .status-passiv { border-color: #7dd3fc; background: #f0f9ff; border-left: 4px solid #0284c7; }
     .status-entfaellt { border-style: dashed; opacity: 0.7; background: #e2e8f0; text-decoration: line-through; }
     .status-done { border-color: rgba(21,128,61,0.5); background: rgba(220,252,231,0.4); border-left: 4px solid var(--ok); }
@@ -275,9 +278,10 @@
       </div>
     </div>
 
+    <!-- Verspätungsangaben inklusive Option für schriftliche Entschuldigung -->
     <div id="verspaetungCard" class="card hidden">
       <h2 style="font-size:0.875rem; font-weight:600; color:var(--mute); margin-bottom:0.75rem;">Verspätungsangaben</h2>
-      <div class="grid-2">
+      <div class="grid-2" style="margin-bottom:0.75rem;">
         <div>
           <label class="field-label" for="ankunftszeit">Voraussichtliche Ankunft</label>
           <input id="ankunftszeit" type="time" class="input-box">
@@ -285,6 +289,26 @@
         <div>
           <label class="field-label" for="verspaetungGrund">Grund (optional)</label>
           <input id="verspaetungGrund" type="text" class="input-box" placeholder="z. B. Bus verpasst">
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--line); padding-top: 0.75rem;">
+        <label class="field-label">Schriftliche Entschuldigung für diese Verspätung nötig?</label>
+        <div class="grid-2" style="margin-top:0.4rem;">
+          <label class="radio-card">
+            <input type="radio" name="verspaetungNeedProof" value="nein" checked>
+            <div>
+              <span style="display:block; font-size:0.85rem; font-weight:600;">Ohne Entschuldigung</span>
+              <span style="font-size:0.7rem; color:var(--mute);">Nur Mail absenden, kein Zettel nötig</span>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="verspaetungNeedProof" value="ja">
+            <div>
+              <span style="display:block; font-size:0.85rem; font-weight:600;">Mit Entschuldigung</span>
+              <span style="font-size:0.7rem; color:var(--mute);">Erfordert unterschriebenen Nachweis</span>
+            </div>
+          </label>
         </div>
       </div>
     </div>
@@ -429,7 +453,8 @@
     <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.875rem; margin-bottom:1rem;">
       <label class="radio-card"><input type="radio" name="modalStatus" value="anwesend"> <span>Normal anwesend</span></label>
       <label class="radio-card" style="color:var(--bad);"><input type="radio" name="modalStatus" value="krank"> <strong>Gefehlt (Krank)</strong></label>
-      <label class="radio-card" style="color:var(--warn);"><input type="radio" name="modalStatus" value="verspaetung"> <strong>Verspätet</strong></label>
+      <label class="radio-card" style="color:var(--warn);"><input type="radio" name="modalStatus" value="verspaetung"> <strong>Verspätet (mit Entschuldigung)</strong></label>
+      <label class="radio-card" style="color:var(--versp-info);"><input type="radio" name="modalStatus" value="verspaetung_ohne"> <strong>Verspätet (ohne Entschuldigung)</strong></label>
       <label class="radio-card" style="color:#0369a1;"><input type="radio" name="modalStatus" value="passiv"> <strong>Sportbefreiung</strong></label>
       <label class="radio-card" style="color:var(--mute);"><input type="radio" name="modalStatus" value="entfaellt"> <strong>Entfällt / Ausfall</strong></label>
     </div>
@@ -451,7 +476,7 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:1rem;">
       <button class="day-set-status-btn btn-sub" data-status="anwesend">Anwesend</button>
       <button class="day-set-status-btn btn-sub" data-status="krank" style="color:var(--bad); font-weight:700;">Ganztägig krank</button>
-      <button class="day-set-status-btn btn-sub" data-status="verspaetung" style="color:var(--warn); font-weight:700;">Verspätung</button>
+      <button class="day-set-status-btn btn-sub" data-status="verspaetung" style="color:var(--warn); font-weight:700;">Verspätung (m. Entsch.)</button>
       <button class="day-set-status-btn btn-sub" data-status="entfaellt" style="color:var(--mute); font-weight:700;">Alles entfällt</button>
     </div>
 
@@ -887,12 +912,13 @@ apiEndpointInp.addEventListener('input', () => {
   saveSettings(settings);
 });
 
+/* Erinnerungen nur bei krank, passiv oder verspaetung (mit schriftlicher Entschuldigung) anlegen */
 function syncReminderForDate(iso, dayName) {
   const subs = schedule[dayName] || [];
   const sick = [];
   subs.forEach(s => {
     const st = statusLog[`${iso}|${s.id}`];
-    if (st === 'krank' || st === 'passiv') {
+    if (st === 'krank' || st === 'passiv' || st === 'verspaetung') {
       sick.push({ id: s.id, fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: st });
     }
   });
@@ -974,7 +1000,7 @@ function renderReminders() {
 }
 renderReminders();
 
-/* Druck-Vorschau mit Template-Wahl ohne Script-Konflikte */
+/* Druck-Vorschau mit Template-Wahl */
 function openPrint(r) {
   const win = window.open('', '_blank');
   if (!win) return alert("Popup blockiert. Bitte Popups in deinem Browser erlauben.");
@@ -1066,7 +1092,7 @@ function openPrint(r) {
     <div class="t-badge" style="padding:4px 8px; border-radius:4px; font-size:7.5pt; display:flex; gap:12px;">
       <div>Schüler/in: <strong>${escapeHtml(r.name||student.name||'–')}</strong></div>
       <div>Klasse: <strong>${escapeHtml(r.klasse||student.klasse||'–')}</strong></div>
-      <div>Grund: <strong>Krankheit</strong></div>
+      <div>Grund: <strong>Versäumnis / Entschuldigung</strong></div>
     </div>
 
     <div style="flex-grow:1; overflow:hidden;">
@@ -1077,7 +1103,7 @@ function openPrint(r) {
     </div>
 
     <p style="font-size:7pt; line-height:1.35; opacity:0.9;">
-      Ich bitte, das Fehlen meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus gesundheitlichen Gründen zu entschuldigen.
+      Ich bitte, das Fehlen / die Verspätung meines Sohnes / meiner Tochter im oben aufgeführten Unterricht aus triftigem Grund zu entschuldigen.
     </p>
 
     <div style="display:grid; grid-template-columns:1fr 1.3fr; gap:20px; text-align:center; font-size:6.5pt; opacity:0.8; margin-top:2px;">
@@ -1092,7 +1118,6 @@ function openPrint(r) {
   win.document.write(docContent);
   win.document.close();
 
-  // Template-Funktion sicher nach dem Rendering anbinden
   win.setTemplate = function(className, btn) {
     const box = win.document.getElementById('ticketBox');
     if (box) box.className = 'ticket ' + className;
@@ -1112,6 +1137,7 @@ document.getElementById('currentWeekBtn').addEventListener('click', () => {
   renderUntisWeek(); 
 });
 
+/* Raster mit Unterscheidung nach Verspätungsarten und deren Farben */
 function renderUntisWeek() {
   const grid = document.getElementById('untisGrid');
   grid.innerHTML = '';
@@ -1144,7 +1170,10 @@ function renderUntisWeek() {
         totalKrank++;
         if (hasProof) totalDone++;
       }
-      if (st === 'verspaetung') totalVersp++;
+      if (st === 'verspaetung' || st === 'verspaetung_ohne') {
+        totalVersp++;
+        if (st === 'verspaetung' && hasProof) totalDone++;
+      }
 
       const item = document.createElement('div');
       let statusClass = '';
@@ -1158,6 +1187,17 @@ function renderUntisWeek() {
           statusClass = ' status-krank';
           badge = '<span style="color:var(--bad); font-size:9px; font-weight:bold; display:block; text-align:right;">Gefehlt</span>';
         }
+      } else if (st === 'verspaetung') {
+        if (hasProof) {
+          statusClass = ' status-done';
+          badge = '<span style="color:var(--ok); font-size:9px; font-weight:bold; display:block; text-align:right;">✓ Entschuldigt</span>';
+        } else {
+          statusClass = ' status-versp';
+          badge = '<span style="color:var(--warn); font-size:9px; font-weight:bold; display:block; text-align:right;">Verspätet (Offen)</span>';
+        }
+      } else if (st === 'verspaetung_ohne') {
+        statusClass = ' status-versp-info';
+        badge = '<span style="color:var(--versp-info); font-size:9px; font-weight:bold; display:block; text-align:right;">Verspätet (Info)</span>';
       } else if (st !== 'anwesend') {
         statusClass = ` status-${st}`;
       }
@@ -1225,7 +1265,8 @@ function openDayModal(iso, day) {
       <select class="day-sel input-box" data-id="${s.id}" style="width:auto; padding:0.2rem 0.4rem;">
         <option value="anwesend" ${cur==='anwesend'?'selected':''}>Anwesend</option>
         <option value="krank" ${cur==='krank'?'selected':''}>Krank</option>
-        <option value="verspaetung" ${cur==='verspaetung'?'selected':''}>Verspätet</option>
+        <option value="verspaetung" ${cur==='verspaetung'?'selected':''}>Verspätung (m. Entsch.)</option>
+        <option value="verspaetung_ohne" ${cur==='verspaetung_ohne'?'selected':''}>Verspätung (ohne Entsch.)</option>
         <option value="passiv" ${cur==='passiv'?'selected':''}>Sportbefreiung</option>
         <option value="entfaellt" ${cur==='entfaellt'?'selected':''}>Entfällt</option>
       </select>`;
@@ -1256,7 +1297,7 @@ document.getElementById('dayModalPrintAllBtn').addEventListener('click', () => {
   if (!activeDay) return;
   const items = [];
   document.querySelectorAll('.day-sel').forEach(sel => {
-    if (sel.value === 'krank' || sel.value === 'passiv') {
+    if (sel.value === 'krank' || sel.value === 'passiv' || sel.value === 'verspaetung') {
       const s = (schedule[activeDay.day]||[]).find(x => x.id === sel.dataset.id);
       if (s) items.push({ fach: s.fach, stunde: s.stunde, lehrer: `${s.anrede} ${s.nachname}`, status: sel.value });
     }
@@ -1283,14 +1324,24 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   if (chosen.length === 0) return alert("Kein Fach ausgewählt.");
 
   const meldeArt = document.querySelector('input[name="meldeArt"]:checked').value;
-  chosen.forEach(s => { statusLog[`${iso}|${s.id}`] = meldeArt; });
+  let statusToSave = meldeArt;
+
+  if (meldeArt === 'verspaetung') {
+    const needProof = document.querySelector('input[name="verspaetungNeedProof"]:checked').value === 'ja';
+    statusToSave = needProof ? 'verspaetung' : 'verspaetung_ohne';
+  }
+
+  chosen.forEach(s => { statusLog[`${iso}|${s.id}`] = statusToSave; });
   saveStatusLog(statusLog);
 
-  if (meldeArt === 'krank') syncReminderForDate(iso, day);
+  // Erinnerung wird nur erzeugt, wenn Krankmeldung oder Verspätung MIT Entschuldigung gewählt ist
+  if (statusToSave === 'krank' || statusToSave === 'verspaetung') {
+    syncReminderForDate(iso, day);
+  }
 
   const emails = chosen.map(s => s.email).join(',');
-  const sub = encodeURIComponent(`Krankmeldung ${student.name} (${student.klasse}) – ${target.toLocaleDateString('de-DE')}`);
-  const body = encodeURIComponent(`Sehr geehrte Damen und Herren,\n\nich kann heute krankheitsbedingt nicht am Unterricht teilnehmen.\n\nMit freundlichen Grüßen\n${student.name}`);
+  const sub = encodeURIComponent(`Meldung ${student.name} (${student.klasse}) – ${target.toLocaleDateString('de-DE')}`);
+  const body = encodeURIComponent(`Sehr geehrte Damen und Herren,\n\nich möchte hiermit mein Fehlen / meine Verspätung ankündigen.\n\nMit freundlichen Grüßen\n${student.name}`);
   window.location.href = `mailto:${emails}?subject=${sub}&body=${body}`;
 });
 
